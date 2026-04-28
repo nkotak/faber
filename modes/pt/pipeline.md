@@ -1,13 +1,13 @@
 # Modo: pipeline -- Inbox de URLs (Second Brain)
 
-Processa URLs de vagas acumuladas em `data/pipeline.md`. O candidato adiciona URLs quando quiser e depois executa `/career-ops pipeline` para processar todas de uma vez.
+Processa URLs de vagas acumuladas em `data/pipeline.md`. O candidato adiciona URLs quando quiser e depois executa `/faber pipeline` para processar todas de uma vez.
 
 ## Workflow
 
 1. **Ler** `data/pipeline.md` → buscar itens `- [ ]` na secao "Pendentes"
 2. **Para cada URL pendente**:
    a. Calcular proximo `REPORT_NUM` sequencial (ler `reports/`, pegar o numero mais alto + 1)
-   b. **Extrair JD** usando Playwright (browser_navigate + browser_snapshot) → WebFetch → WebSearch
+   b. **Extrair JD** pela cadeia de prioridade (ver abaixo): `fetch-jd.mjs` (API ATS) → agent-browser → Playwright MCP → WebFetch → WebSearch
    c. Se a URL nao for acessivel → marcar como `- [!]` com nota e continuar
    d. **Executar auto-pipeline completa**: Avaliacao A-F → Report .md → PDF (se score >= 3.0) → Tracker
    e. **Mover de "Pendentes" para "Processadas"**: `- [x] #NNN | URL | Empresa | Vaga | Score/5 | PDF ✅/❌`
@@ -35,9 +35,11 @@ Processa URLs de vagas acumuladas em `data/pipeline.md`. O candidato adiciona UR
 
 ## Deteccao inteligente de JD a partir da URL
 
-1. **Playwright (preferido):** `browser_navigate` + `browser_snapshot`. Funciona com todas as SPAs.
-2. **WebFetch (fallback):** Para paginas estaticas ou quando Playwright nao esta disponivel.
-3. **WebSearch (ultimo recurso):** Buscar em portais secundarios que indexam o JD.
+1. **API JSON ATS (preferido):** `node fetch-jd.mjs "{URL}"`. Greenhouse/Ashby/Lever via seus endpoints JSON publicos. ~200ms por URL, parallel-safe, sem navegador. Exit 0 em sucesso; exit != 0 se nao API-suportado — passar para a proxima.
+2. **agent-browser (fallback #1):** CLI Chrome headless nativo em Rust. Parallel-safe (instancia independente por chamada). Funciona em contexto `claude -p`.
+3. **Playwright MCP (fallback #2):** `browser_navigate` + `browser_snapshot`. Apenas em sessao interativa single-agent. NUNCA 2+ agentes em paralelo (`_shared.md:95`).
+4. **WebFetch (fallback #3):** Para paginas HTML estaticas sem JS.
+5. **WebSearch (ultimo recurso):** Buscar em portais secundarios que indexam o JD.
 
 **Casos especiais:**
 - **LinkedIn**: Pode exigir login → marcar com `[!]` e pedir ao candidato para colar o texto

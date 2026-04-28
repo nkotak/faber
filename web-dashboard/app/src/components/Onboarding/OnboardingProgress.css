@@ -1,0 +1,88 @@
+/* OnboardingProgress.css -- 5-marker grid (NOT a progress bar).
+ *
+ * Each marker shows a dot + label + numeric "n/5". Active = phosphor with
+ * subtle glow halo. Done = solid ink dot. Pending = transparent dot with
+ * rule-strong outline.
+ */
+
+.onb-progress {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.onb-progress__step {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-items: start;
+  padding: var(--s-3) var(--s-4) var(--s-3);
+  gap: var(--s-1);
+  border: none;
+  background: transparent;
+  cursor: default;
+  text-align: left;
+  position: relative;
+  font-feature-settings: 'onum' 1;
+}
+.onb-progress__step + .onb-progress__step {
+  border-left: 1px solid var(--rule);
+}
+.onb-progress__step--clickable {
+  cursor: pointer;
+}
+.onb-progress__step--clickable:hover .onb-progress__label {
+  color: var(--ink);
+}
+
+.onb-progress__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+}
+
+/* dot */
+.onb-progress__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all var(--d-fast) var(--ease-out-quart);
+}
+.onb-progress__dot--pending {
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+}
+.onb-progress__dot--active {
+  background: var(--phosphor);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--phosphor) 22%, transparent);
+}
+.onb-progress__dot--done {
+  background: var(--ink-soft);
+}
+
+.onb-progress__index {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-whisper);
+  font-variant-numeric: oldstyle-nums tabular-nums;
+}
+
+.onb-progress__label {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-variant-numeric: oldstyle-nums;
+  transition: color var(--d-fast) var(--ease-out-quart);
+}
+.onb-progress__step--active .onb-progress__label {
+  color: var(--ink);
+}
+.onb-progress__step--done .onb-progress__label {
+  color: var(--ink-soft);
+}

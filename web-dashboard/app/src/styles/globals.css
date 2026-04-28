@@ -1,0 +1,381 @@
+/* globals.css - resets, base typography, and the shared shell.
+ *
+ * Import order matters: tokens.css must load before this file.
+ * Font-face is in typography.css which is imported by main.tsx via
+ * @fontsource packages; this file only declares font-family fallbacks.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-prose);
+  font-size: var(--t-base);
+  line-height: 1.52;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'ss01' 1;
+  /* Very subtle paper-ish warmth. Intentionally restrained - we want
+   * the feel of a well-printed page, not a radiating "hero" backdrop. */
+  background-image: radial-gradient(
+    1400px 800px at 50% -20%,
+    color-mix(in oklch, var(--paper) 96%, var(--phosphor) 4%) 0%,
+    transparent 65%
+  );
+  background-attachment: fixed;
+  transition: background-color var(--d-med) var(--ease-out-quart),
+    color var(--d-med) var(--ease-out-quart);
+}
+
+body {
+  /* Lock scroll; panes manage their own overflow. */
+  overflow: hidden;
+  min-width: 320px;
+}
+
+#root {
+  /* definite height so the 1fr main row actually constrains its children;
+   * without this, inner flex/grid chains can't figure out how much vertical
+   * space they have and scroll containers collapse to content-height. */
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* masthead / main / tray */
+  background: transparent;
+}
+
+/* -------- typography -------------------------------------------------- */
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-prose);
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  line-height: 1.18;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 0.96;
+}
+
+.prose {
+  font-family: var(--font-prose);
+  font-size: var(--t-base);
+  line-height: 1.62;
+  color: var(--ink);
+  max-width: var(--measure-prose);
+}
+.prose p + p {
+  margin-top: var(--s-3);
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  margin-top: var(--s-6);
+  margin-bottom: var(--s-3);
+}
+.prose h1 {
+  font-size: var(--t-2xl);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.prose h2 {
+  font-size: var(--t-xl);
+  font-weight: 500;
+}
+.prose h3 {
+  font-size: var(--t-lg);
+}
+.prose a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--phosphor);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--d-fast) var(--ease-out-quart);
+}
+.prose a:hover {
+  text-decoration-color: var(--ink);
+}
+.prose blockquote {
+  margin: var(--s-4) 0;
+  padding: var(--s-2) 0 var(--s-2) var(--s-4);
+  border-left: 1px solid var(--rule);
+  color: var(--ink-muted);
+  font-style: italic;
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--paper-raised);
+  padding: 1px 4px;
+  border-radius: var(--r-1);
+}
+.prose pre {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  background: var(--paper-sunken);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-2);
+  overflow-x: auto;
+  margin: var(--s-4) 0;
+  line-height: 1.5;
+}
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.prose ul,
+.prose ol {
+  padding-left: var(--s-5);
+  margin: var(--s-3) 0;
+}
+.prose li + li {
+  margin-top: var(--s-1);
+}
+.prose table {
+  /* prose (serif) body - these are written sentences in cells, not code.
+   * Keep monospace only for explicit <code> spans.
+   *
+   * Philosophy: tables fill the container and WRAP rather than scrolling
+   * horizontally. Eval report tables (scoring matrices, STAR breakdowns)
+   * contain natural-language cells that can and should wrap.
+   *
+   * `table-layout: auto` lets the browser distribute column widths by
+   * content weight (single-letter STAR columns stay narrow; long prose
+   * cells get more room). `word-break` + `overflow-wrap: anywhere` force
+   * cells to wrap when the table would otherwise exceed 100% width —
+   * without these, a single long unbreakable word can balloon a column.
+   *
+   * `.prose-table-scroll` still catches the edge case of a table that
+   * genuinely cannot fit even with wrapping. */
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  font-size: var(--t-sm);
+  font-family: var(--font-prose);
+  line-height: 1.5;
+  table-layout: auto;
+}
+.prose th,
+.prose td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.prose th {
+  font-family: var(--font-prose);
+  font-weight: 500;
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: normal;
+  line-height: 1.3;
+  /* headers are short labels; hyphenating them mid-word ("REFLECTI-ON")
+   * looks worse than letting them sit on one line */
+  hyphens: manual;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: var(--s-5) 0;
+}
+
+/* Scroll wrapper injected around every <table> by DetailPane.
+ * Uses Lea Verou's "background-attachment: local" trick to paint scroll
+ * shadows that reveal when content is horizontally overflowed - a
+ * discoverable cue that there's more to the right, without any JS.
+ *
+ * Full-bleed behavior: the wrapper uses negative margins equal to the
+ * reader pane's horizontal padding (exposed as --measure-gutter on the
+ * scroll container), so tables extend to the pane edges instead of being
+ * capped by the prose column measure. Dense eval-report scoring tables
+ * now fit without horizontal scroll in the common case. */
+.prose-table-scroll {
+  margin: var(--s-4) calc(-1 * var(--measure-gutter, 0px));
+  max-width: none;
+  width: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background:
+    /* masks that hide the shadow at the edges when scrolled to them */
+    linear-gradient(to right, var(--vellum), var(--vellum)) left center / 16px 100% no-repeat,
+    linear-gradient(to left,  var(--vellum), var(--vellum)) right center / 16px 100% no-repeat,
+    /* shadows (scrolling with the content, so they reveal on overflow) */
+    linear-gradient(to right, color-mix(in oklch, var(--ink) 14%, transparent), transparent) left center / 22px 100% no-repeat,
+    linear-gradient(to left,  color-mix(in oklch, var(--ink) 14%, transparent), transparent) right center / 22px 100% no-repeat;
+  background-attachment: local, local, scroll, scroll;
+  /* the reader background shows through the masks */
+}
+
+/* Adjacent-heading rhythm: two consecutive h2s (or h2 after h1) get a
+ * hair rule and extra top margin so they don't smush together in long
+ * reports. */
+.prose h2 + h2,
+.prose h1 + h2,
+.prose p + h2,
+.prose ul + h2,
+.prose ol + h2,
+.prose .prose-table-scroll + h2 {
+  margin-top: var(--s-7);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'ss01' 1, 'zero' 1, 'tnum' 1;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: color-mix(in oklch, var(--phosphor) 30%, transparent);
+  color: var(--ink);
+}
+
+/* -------- focus ring ---------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--phosphor);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+
+/* -------- scrollbar ---------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--rule-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-muted);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* -------- utility helpers -------------------------------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* -------- view transitions -------------------------------------------
+ * The detail hero's company + role morph between selections via paired
+ * view-transition-names (set inline on DetailPane's h1 / role <p>). The
+ * root transition on everything else uses a very fast cross-fade so the
+ * rest of the UI doesn't feel sluggish.
+ */
+@media not (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 180ms;
+    animation-timing-function: var(--ease-out-quart);
+  }
+
+  ::view-transition-old(detail-company),
+  ::view-transition-new(detail-company) {
+    animation-duration: 420ms;
+    animation-timing-function: var(--ease-out-quint);
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(detail-company) {
+    animation-name: heroCompanyOut;
+  }
+  ::view-transition-new(detail-company) {
+    animation-name: heroCompanyIn;
+  }
+
+  ::view-transition-old(detail-role),
+  ::view-transition-new(detail-role) {
+    animation-duration: 300ms;
+    animation-timing-function: var(--ease-out-quart);
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(detail-role) { animation-name: heroRoleOut; }
+  ::view-transition-new(detail-role) { animation-name: heroRoleIn; }
+}
+
+@keyframes heroCompanyOut {
+  to { opacity: 0; transform: translateY(-8px); filter: blur(2px); }
+}
+@keyframes heroCompanyIn {
+  from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
+@keyframes heroRoleOut {
+  to { opacity: 0; transform: translateX(-6px); }
+}
+@keyframes heroRoleIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

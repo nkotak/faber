@@ -1,5 +1,5 @@
 {
-  "name": "career-ops",
+  "name": "faber",
   "version": "1.0.0",
   "description": "AI-powered job search pipeline built on Claude Code",
   "scripts": {
@@ -16,12 +16,7 @@
     "liveness": "node check-liveness.mjs"
   },
   "keywords": ["ai", "job-search", "claude-code", "career", "automation"],
-  "author": "Santiago Fernández de Valderrama <hi@santifer.io> (https://santifer.io)",
-  "homepage": "https://santifer.io",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/santifer/career-ops"
-  },
+  "private": true,
   "license": "MIT",
   "dependencies": {
     "playwright": "^1.58.1"

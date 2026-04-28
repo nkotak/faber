@@ -11,8 +11,8 @@
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/santifer/career-ops.git
-cd career-ops
+git clone <your-faber-repo-url>
+cd faber
 npm install
 npx playwright install chromium   # Required for PDF generation
 ```
@@ -50,19 +50,19 @@ Open Claude Code in this directory:
 claude
 ```
 
-Then paste a job offer URL or description. Career-ops will automatically evaluate it, generate a report, create a tailored PDF, and track it.
+Then paste a job offer URL or description. Faber will automatically evaluate it, generate a report, create a tailored PDF, and track it.
 
 ## Available Commands
 
 | Action | How |
 |--------|-----|
 | Evaluate an offer | Paste a URL or JD text |
-| Search for offers | `/career-ops scan` |
-| Process pending URLs | `/career-ops pipeline` |
-| Generate a PDF | `/career-ops pdf` |
-| Batch evaluate | `/career-ops batch` |
-| Check tracker status | `/career-ops tracker` |
-| Fill application form | `/career-ops apply` |
+| Search for offers | `/faber scan` |
+| Process pending URLs | `/faber pipeline` |
+| Generate a PDF | `/faber pdf` |
+| Batch evaluate | `/faber batch` |
+| Check tracker status | `/faber tracker` |
+| Fill application form | `/faber apply` |
 
 ## Verify Setup
 
@@ -75,6 +75,13 @@ node verify-pipeline.mjs     # Check pipeline integrity
 
 ```bash
 cd dashboard
-go build -o career-dashboard .
-./career-dashboard --path ..  # Opens TUI pipeline viewer
+go build -o faber-dashboard .
+./faber-dashboard --path ..  # Opens TUI pipeline viewer
+```
+
+Or launch the web dashboard instead:
+
+```bash
+cd web-dashboard && npm install
+npx faber-web   # Opens http://127.0.0.1:7433
 ```

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# career-ops batch runner — standalone orchestrator for claude -p workers
+# faber batch runner — standalone orchestrator for claude -p workers
 # Reads batch-input.tsv, delegates each offer to a claude -p worker,
 # tracks state in batch-state.tsv for resumability.
 
@@ -30,7 +30,7 @@ MAX_RETRIES=2
 
 usage() {
   cat <<'USAGE'
-career-ops batch runner — process job offers in batch via claude -p workers
+faber batch runner — process job offers in batch via claude -p workers
 Uses your default Claude model (Claude Max subscription).
 
 Usage: batch-runner.sh [OPTIONS]
@@ -319,7 +319,7 @@ process_offer() {
 
   # Build the prompt with placeholders replaced
   local prompt
-  prompt="Procesa esta oferta de empleo. Ejecuta el pipeline completo: evaluación A-F + report .md + PDF + tracker line."
+  prompt="Process this job offer. Run the full pipeline: A-F evaluation + report .md + PDF + tracker line."
   prompt="$prompt URL: $url"
   prompt="$prompt JD file: $jd_file"
   prompt="$prompt Report number: $report_num"
@@ -356,7 +356,7 @@ process_offer() {
     # Try to extract score from worker output
     local score="-"
     local score_match
-    score_match=$(grep -oP '"score":\s*[\d.]+' "$log_file" 2>/dev/null | head -1 | grep -oP '[\d.]+' || true)
+    score_match=$(sed -n 's/.*"score":[[:space:]]*\([0-9.]*\).*/\1/p' "$log_file" 2>/dev/null | head -1 || true)
     if [[ -n "$score_match" ]]; then
       score="$score_match"
     fi
@@ -439,7 +439,7 @@ main() {
     exit 0
   fi
 
-  echo "=== career-ops batch runner ==="
+  echo "=== faber batch runner ==="
   echo "Parallel: $PARALLEL | Max retries: $MAX_RETRIES"
   echo "Input: $total_input offers"
   echo ""

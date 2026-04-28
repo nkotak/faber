@@ -1,12 +1,8 @@
-# Career-Ops -- AI Job Search Pipeline
+# Faber -- AI Job Search Pipeline
 
-## Origin
+## Philosophy
 
-This system was built and used by [santifer](https://santifer.io) to evaluate 740+ job offers, generate 100+ tailored CVs, and land a Head of Applied AI role. The archetypes, scoring logic, negotiation scripts, and proof point structure all reflect his specific career search in AI/automation roles.
-
-The portfolio that goes with this system is also open source: [cv-santiago](https://github.com/santifer/cv-santiago).
-
-**It will work out of the box, but it's designed to be made yours.** If the archetypes don't match your career, the modes are in the wrong language, or the scoring doesn't fit your priorities -- just ask. You (AI Agent) can edit the user's files. The user says "change the archetypes to data engineering roles" and you do it. That's the whole point.
+**This system is designed to be made yours.** If the archetypes don't match your career, the modes are in the wrong language, or the scoring doesn't fit your priorities -- just ask. You (AI Agent) can edit the user's files. The user says "change the archetypes to data engineering roles" and you do it. That's the whole point.
 
 ## Data Contract (CRITICAL)
 
@@ -17,31 +13,12 @@ There are two layers. Read `DATA_CONTRACT.md` for the full list.
 - `data/*`, `reports/*`, `output/*`, `interview-prep/*`
 
 **System Layer (auto-updatable, DON'T put user data here):**
-- `modes/_shared.md`, `modes/oferta.md`, all other modes
+- `modes/_shared.md`, `modes/offer.md`, all other modes
 - `CLAUDE.md`, `*.mjs` scripts, `dashboard/*`, `templates/*`, `batch/*`
 
 **THE RULE: When the user asks to customize anything (archetypes, narrative, negotiation scripts, proof points, location policy, comp targets), ALWAYS write to `modes/_profile.md` or `config/profile.yml`. NEVER edit `modes/_shared.md` for user-specific content.** This ensures system updates don't overwrite their customizations.
 
-## Update Check
-
-On the first message of each session, run the update checker silently:
-
-```bash
-node update-system.mjs check
-```
-
-Parse the JSON output:
-- `{"status": "update-available", "local": "1.0.0", "remote": "1.1.0", "changelog": "..."}` → tell the user:
-  > "career-ops update available (v{local} → v{remote}). Your data (CV, profile, tracker, reports) will NOT be touched. Want me to update?"
-  If yes → run `node update-system.mjs apply`. If no → run `node update-system.mjs dismiss`.
-- `{"status": "up-to-date"}` → say nothing
-- `{"status": "dismissed"}` → say nothing
-- `{"status": "offline"}` → say nothing
-
-The user can also say "check for updates" or "update career-ops" at any time to force a check.
-To rollback: `node update-system.mjs rollback`
-
-## What is career-ops
+## What is faber
 
 AI-powered job search automation built on Claude Code: pipeline tracking, offer evaluation, CV generation, portal scanning, batch processing.
 
@@ -67,22 +44,22 @@ When using [OpenCode](https://opencode.ai), the following slash commands are ava
 
 | Command | Claude Code Equivalent | Description |
 |---------|------------------------|-------------|
-| `/career-ops` | `/career-ops` | Show menu or evaluate JD with args |
-| `/career-ops-pipeline` | `/career-ops pipeline` | Process pending URLs from inbox |
-| `/career-ops-evaluate` | `/career-ops oferta` | Evaluate job offer (A-F scoring) |
-| `/career-ops-compare` | `/career-ops ofertas` | Compare and rank multiple offers |
-| `/career-ops-contact` | `/career-ops contacto` | LinkedIn outreach (find contacts + draft) |
-| `/career-ops-deep` | `/career-ops deep` | Deep company research |
-| `/career-ops-pdf` | `/career-ops pdf` | Generate ATS-optimized CV |
-| `/career-ops-training` | `/career-ops training` | Evaluate course/cert against goals |
-| `/career-ops-project` | `/career-ops project` | Evaluate portfolio project idea |
-| `/career-ops-tracker` | `/career-ops tracker` | Application status overview |
-| `/career-ops-apply` | `/career-ops apply` | Live application assistant |
-| `/career-ops-scan` | `/career-ops scan` | Scan portals for new offers |
-| `/career-ops-batch` | `/career-ops batch` | Batch processing with parallel workers |
-| `/career-ops-patterns` | `/career-ops patterns` | Analyze rejection patterns and improve targeting |
+| `/faber` | `/faber` | Show menu or evaluate JD with args |
+| `/faber-pipeline` | `/faber pipeline` | Process pending URLs from inbox |
+| `/faber-evaluate` | `/faber offer` | Evaluate job offer (A-F scoring) |
+| `/faber-compare` | `/faber offers` | Compare and rank multiple offers |
+| `/faber-contact` | `/faber contact` | LinkedIn outreach (find contacts + draft) |
+| `/faber-deep` | `/faber deep` | Deep company research |
+| `/faber-pdf` | `/faber pdf` | Generate ATS-optimized CV |
+| `/faber-training` | `/faber training` | Evaluate course/cert against goals |
+| `/faber-project` | `/faber project` | Evaluate portfolio project idea |
+| `/faber-tracker` | `/faber tracker` | Application status overview |
+| `/faber-apply` | `/faber apply` | Live application assistant |
+| `/faber-scan` | `/faber scan` | Scan portals for new offers |
+| `/faber-batch` | `/faber batch` | Batch processing with parallel workers |
+| `/faber-patterns` | `/faber patterns` | Analyze rejection patterns and improve targeting |
 
-**Note:** OpenCode commands invoke the same `.claude/skills/career-ops/SKILL.md` skill used by Claude Code. The `modes/*` files are shared between both platforms.
+**Note:** OpenCode commands invoke the same `.claude/skills/faber/SKILL.md` skill used by Claude Code. The `modes/*` files are shared between both platforms.
 
 ### First Run — Onboarding (IMPORTANT)
 
@@ -156,17 +133,17 @@ Store any insights the user shares in `config/profile.yml` (under narrative), `m
 Once all files exist, confirm:
 > "You're all set! You can now:
 > - Paste a job URL to evaluate it
-> - Run `/career-ops scan` (or `/career-ops-scan` if using OpenCode) to search portals
-> - Run `/career-ops` to see all commands
+> - Run `/faber scan` (or `/faber-scan` if using OpenCode) to search portals
+> - Run `/faber` to see all commands
 >
 > Everything is customizable — just ask me to change anything.
 >
-> Tip: Having a personal portfolio dramatically improves your job search. If you don't have one yet, the author's portfolio is also open source: github.com/santifer/cv-santiago — feel free to fork it and make it yours."
+> Tip: Having a personal portfolio dramatically improves your job search."
 
 Then suggest automation:
 > "Want me to scan for new offers automatically? I can set up a recurring scan every few days so you don't miss anything. Just say 'scan every 3 days' and I'll configure it."
 
-If the user accepts, use the `/loop` or `/schedule` skill (if available) to set up a recurring `/career-ops scan` (or `/career-ops-scan` if using OpenCode). If those aren't available, suggest adding a cron job or remind them to run `/career-ops scan` (or `/career-ops-scan` if using OpenCode) periodically.
+If the user accepts, use the `/loop` or `/schedule` skill (if available) to set up a recurring `/faber scan` (or `/faber-scan` if using OpenCode). If those aren't available, suggest adding a cron job or remind them to run `/faber scan` (or `/faber-scan` if using OpenCode) periodically.
 
 ### Personalization
 
@@ -204,9 +181,9 @@ Default modes are in `modes/` (English). Additional language-specific modes are 
 | If the user... | Mode |
 |----------------|------|
 | Pastes JD or URL | auto-pipeline (evaluate + report + PDF + tracker) |
-| Asks to evaluate offer | `oferta` |
-| Asks to compare offers | `ofertas` |
-| Wants LinkedIn outreach | `contacto` |
+| Asks to evaluate offer | `offer` |
+| Asks to compare offers | `offers` |
+| Wants LinkedIn outreach | `contact` |
 | Asks for company research | `deep` |
 | Preps for interview at specific company | `interview-prep` |
 | Wants to generate CV/PDF | `pdf` |

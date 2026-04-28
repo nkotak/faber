@@ -1,17 +1,21 @@
 package screens
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/santifer/career-ops/dashboard/internal/data"
-	"github.com/santifer/career-ops/dashboard/internal/model"
-	"github.com/santifer/career-ops/dashboard/internal/theme"
+	"faber/dashboard/internal/data"
+	"faber/dashboard/internal/model"
+	"faber/dashboard/internal/theme"
 )
 
 // PipelineClosedMsg is emitted when the pipeline screen is dismissed.
@@ -29,6 +33,12 @@ type PipelineOpenURLMsg struct {
 	URL string
 }
 
+// PipelineOpenPDFMsg is emitted when a local PDF file should be opened in
+// the OS default viewer. Path is an absolute path (Preview on macOS, etc.).
+type PipelineOpenPDFMsg struct {
+	Path string
+}
+
 // PipelineLoadReportMsg requests lazy loading of a report summary.
 type PipelineLoadReportMsg struct {
 	CareerOpsPath string
@@ -40,6 +50,143 @@ type PipelineUpdateStatusMsg struct {
 	CareerOpsPath string
 	App           model.CareerApplication
 	NewStatus     string
+}
+
+// PipelineStartPDFMsg requests CV/PDF generation for a selected application.
+// The dashboard main.go handler spawns `claude -p "/faber pdf <ReportPath>"`
+// as a background goroutine; messages flow back via tea.Program.Send.
+type PipelineStartPDFMsg struct {
+	CareerOpsPath string
+	ReportPath    string
+	Company       string
+	Role          string
+	Number        int
+}
+
+// PipelineCancelPDFMsg requests cancellation of a running PDF job.
+type PipelineCancelPDFMsg struct {
+	Number int
+}
+
+// PipelineSpinnerTickMsg advances the spinner animation. Emitted on a
+// 250ms tea.Tick loop while any job is active.
+type PipelineSpinnerTickMsg struct{}
+
+// PipelineStartEvalMsg requests evaluation of a single pending URL via
+// `claude -p "/faber <URL>"`. The main.go handler spawns the
+// subprocess via jobs.SpawnEval.
+type PipelineStartEvalMsg struct {
+	CareerOpsPath string
+	URL           string
+	Company       string
+	Role          string
+}
+
+// PipelineCancelEvalMsg requests cancellation of a running eval job.
+type PipelineCancelEvalMsg struct {
+	URL string
+}
+
+// PipelineStartInterviewPrepMsg requests interview-prep intel generation for
+// an app. Keyed by ReportPath (slug derived server-side for file naming).
+type PipelineStartInterviewPrepMsg struct {
+	CareerOpsPath string
+	ReportPath    string
+	Company       string
+	Role          string
+}
+
+// PipelineCancelInterviewPrepMsg requests cancellation of a running
+// interview-prep job.
+type PipelineCancelInterviewPrepMsg struct {
+	ReportPath string
+}
+
+// PipelineOpenInterviewPrepMsg is emitted when an existing interview-prep
+// file should be opened in the report viewer (same as Enter for eval reports).
+type PipelineOpenInterviewPrepMsg struct {
+	Path  string // absolute path to the interview-prep md
+	Title string // "Interview prep: {company} — {role}"
+}
+
+// PipelineRefreshMsg requests a manual reload of all on-disk state:
+// applications.md, pipeline.md, output/*.pdf, interview-prep/*.md.
+// Emitted by the `r` keybind so the user can pick up changes made by
+// external processes (batch runs, scans, manual file edits) without
+// having to quit and relaunch.
+type PipelineRefreshMsg struct{}
+
+// PdfJobStatus is the lifecycle state of a background PDF generation job.
+type PdfJobStatus int
+
+const (
+	JobRunning PdfJobStatus = iota
+	JobSucceeded
+	JobFailed
+	JobCancelled
+)
+
+// PdfJob is the dashboard's view of one background CV generation.
+// All fields are owned by PipelineModel and must only be mutated inside
+// the Bubble Tea Update loop.
+type PdfJob struct {
+	Number     int
+	Company    string
+	Role       string
+	ReportPath string
+
+	Status     PdfJobStatus
+	StartedAt  time.Time
+	FinishedAt time.Time // zero if running
+	LastLabel  string
+	Err        error
+	ExitCode   int
+
+	// Cancel kills the underlying goroutine's exec.CommandContext.
+	Cancel context.CancelFunc
+
+	// ToastUntil is when a terminal-state chip should be pruned.
+	// Only set when Status != JobRunning.
+	ToastUntil time.Time
+}
+
+// EvalJob is the dashboard's view of one background evaluation (a single
+// pending URL being processed by `claude -p "/faber <URL>"`). Keyed
+// by URL in the owning PipelineModel's evalJobs map. Same lifecycle as
+// PdfJob; status enum reused.
+type EvalJob struct {
+	URL     string
+	Company string
+	Role    string
+
+	Status     PdfJobStatus
+	StartedAt  time.Time
+	FinishedAt time.Time
+	LastLabel  string
+	Err        error
+	ExitCode   int
+
+	Cancel     context.CancelFunc
+	ToastUntil time.Time
+}
+
+// InterviewPrepJob is the dashboard's view of one background interview-prep
+// research run (modes/interview-prep.md). Keyed by ReportPath in the owning
+// PipelineModel's prepJobs map. Reuses PdfJobStatus.
+type InterviewPrepJob struct {
+	ReportPath string
+	Company    string
+	Role       string
+
+	Status     PdfJobStatus
+	StartedAt  time.Time
+	FinishedAt time.Time
+	LastLabel  string
+	Err        error
+	ExitCode   int
+
+	Cancel     context.CancelFunc
+	ToastUntil time.Time
 }
 
 type reportSummary struct {
@@ -65,6 +212,7 @@ const (
 	filterInterview = "interview"
 	filterSkip      = "skip"
 	filterTop       = "top"
+	filterPending   = "pending" // QUEUE tab — data/pipeline.md unchecked items
 )
 
 type pipelineTab struct {
@@ -79,6 +227,7 @@ var pipelineTabs = []pipelineTab{
 	{filterInterview, "INTERVIEW"},
 	{filterTop, "TOP ≥4"},
 	{filterSkip, "SKIP"},
+	{filterPending, "QUEUE"},
 }
 
 var sortCycle = []string{sortScore, sortDate, sortCompany, sortStatus}
@@ -105,21 +254,73 @@ type PipelineModel struct {
 	// Status picker sub-state
 	statusPicker bool
 	statusCursor int
+
+	// PDF generation jobs — keyed by app.Number for O(1) lookup.
+	// jobOrder preserves insertion order for stable left-to-right chip display.
+	jobs         map[int]*PdfJob
+	jobOrder     []int
+	spinnerFrame int // advances every 250ms via PipelineSpinnerTickMsg
+
+	// pdfOnDisk is the set of REPORT numbers whose PDF file exists in
+	// output/ (keyed by the number in cv-{num}-*.pdf, which is the
+	// report id — NOT the tracker row `#`). Populated by
+	// data.ScanOutputPDFs at startup and refreshed after every job
+	// completion. Used by the 3-state PDF indicator column and the
+	// conditional "P open PDF" keybinding. Look up with app.ReportNum().
+	pdfOnDisk map[int]bool
+
+	// Pending queue — rows from data/pipeline.md that haven't been evaluated.
+	// pendingCursor tracks selection on the QUEUE tab (separate from cursor
+	// which tracks selection on all applications-based tabs).
+	pending       []model.PendingJob
+	pendingCursor int
+
+	// Eval jobs, keyed by URL. Lifecycle mirrors jobs (jobOrder preserves
+	// display order in the bottom status bar).
+	evalJobs     map[string]*EvalJob
+	evalJobOrder []string
+
+	// Interview-prep jobs, keyed by ReportPath. Same lifecycle as PDF / eval
+	// jobs; chips appear in the bottom status bar alongside the others.
+	prepJobs     map[string]*InterviewPrepJob
+	prepJobOrder []string
+
+	// Set of interview-prep slugs that have an existing file on disk. Used
+	// by the 3-state-ish help bar logic: `i prep` when missing, `I open prep`
+	// when present. Populated by data.ScanInterviewPrep at startup and
+	// refreshed after every job completion.
+	interviewPrepOnDisk map[string]bool
 }
 
 // NewPipelineModel creates a new pipeline screen.
-func NewPipelineModel(t theme.Theme, apps []model.CareerApplication, metrics model.PipelineMetrics, careerOpsPath string, width, height int) PipelineModel {
+// pdfOnDisk is the set of report numbers (from cv-{num}-*.pdf) with a
+// generated PDF on disk; may be nil. Keyed by report id, not row id.
+// pending is the unprocessed URL list from data/pipeline.md; may be nil.
+// prepOnDisk is the set of interview-prep slugs with a file on disk; may be nil.
+func NewPipelineModel(t theme.Theme, apps []model.CareerApplication, pending []model.PendingJob, metrics model.PipelineMetrics, careerOpsPath string, pdfOnDisk map[int]bool, prepOnDisk map[string]bool, width, height int) PipelineModel {
+	if pdfOnDisk == nil {
+		pdfOnDisk = make(map[int]bool)
+	}
+	if prepOnDisk == nil {
+		prepOnDisk = make(map[string]bool)
+	}
 	m := PipelineModel{
-		apps:          apps,
-		metrics:       metrics,
-		sortMode:      sortScore,
-		activeTab:     0,
-		viewMode:      "grouped",
-		width:         width,
-		height:        height,
-		theme:         t,
-		careerOpsPath: careerOpsPath,
-		reportCache:   make(map[string]reportSummary),
+		apps:                apps,
+		metrics:             metrics,
+		sortMode:            sortScore,
+		activeTab:           0,
+		viewMode:            "grouped",
+		width:               width,
+		height:              height,
+		theme:               t,
+		careerOpsPath:       careerOpsPath,
+		reportCache:         make(map[string]reportSummary),
+		jobs:                make(map[int]*PdfJob),
+		pdfOnDisk:           pdfOnDisk,
+		pending:             pending,
+		evalJobs:            make(map[string]*EvalJob),
+		prepJobs:            make(map[string]*InterviewPrepJob),
+		interviewPrepOnDisk: prepOnDisk,
 	}
 	m.applyFilterAndSort()
 	return m
@@ -159,6 +360,412 @@ func (m *PipelineModel) EnrichReport(reportPath, archetype, tldr, remote, comp s
 	}
 }
 
+// CopyJobsState copies in-flight and recently-completed PDF jobs from another
+// PipelineModel. Used after pipelineReloadMsg rebuilds the model so jobs
+// survive an applications.md re-parse triggered by status updates or PDF
+// completion.
+func (m *PipelineModel) CopyJobsState(other *PipelineModel) {
+	if other == nil {
+		return
+	}
+	if m.jobs == nil {
+		m.jobs = make(map[int]*PdfJob)
+	}
+	for k, v := range other.jobs {
+		m.jobs[k] = v
+	}
+	m.jobOrder = append(m.jobOrder[:0], other.jobOrder...)
+	m.spinnerFrame = other.spinnerFrame
+}
+
+// SetPDFOnDisk replaces the disk-presence map. Called after a job completes
+// to refresh the set without a full PipelineModel rebuild (the main Update
+// handler already rebuilds via pipelineReloadMsg, but this helper is useful
+// if the caller wants to refresh the set without a full re-parse).
+func (m *PipelineModel) SetPDFOnDisk(pdfOnDisk map[int]bool) {
+	if pdfOnDisk == nil {
+		pdfOnDisk = make(map[int]bool)
+	}
+	m.pdfOnDisk = pdfOnDisk
+}
+
+// CopyEvalJobsState mirrors CopyJobsState but for eval jobs.
+func (m *PipelineModel) CopyEvalJobsState(other *PipelineModel) {
+	if other == nil {
+		return
+	}
+	if m.evalJobs == nil {
+		m.evalJobs = make(map[string]*EvalJob)
+	}
+	for k, v := range other.evalJobs {
+		m.evalJobs[k] = v
+	}
+	m.evalJobOrder = append(m.evalJobOrder[:0], other.evalJobOrder...)
+}
+
+// StartEvalJob registers a new running eval job keyed by URL.
+func (m *PipelineModel) StartEvalJob(j *EvalJob) {
+	if m.evalJobs == nil {
+		m.evalJobs = make(map[string]*EvalJob)
+	}
+	if _, exists := m.evalJobs[j.URL]; !exists {
+		m.evalJobOrder = append(m.evalJobOrder, j.URL)
+	}
+	m.evalJobs[j.URL] = j
+}
+
+// UpdateEvalJobLabel sets the latest progress label for a running eval job.
+func (m *PipelineModel) UpdateEvalJobLabel(url, label string) {
+	j, ok := m.evalJobs[url]
+	if !ok || j.Status != JobRunning {
+		return
+	}
+	j.LastLabel = label
+}
+
+// CompleteEvalJob transitions an eval job to terminal state + toast.
+// Durations match PDF jobs: 5s success / 60s failure / 10s cancelled.
+func (m *PipelineModel) CompleteEvalJob(url string, err error, exitCode int) {
+	j, ok := m.evalJobs[url]
+	if !ok {
+		return
+	}
+	j.FinishedAt = time.Now()
+	j.Err = err
+	j.ExitCode = exitCode
+	switch {
+	case j.Status == JobCancelled:
+		j.ToastUntil = j.FinishedAt.Add(10 * time.Second)
+	case err != nil || exitCode != 0:
+		j.Status = JobFailed
+		j.ToastUntil = j.FinishedAt.Add(60 * time.Second)
+	default:
+		j.Status = JobSucceeded
+		j.ToastUntil = j.FinishedAt.Add(5 * time.Second)
+	}
+}
+
+// CancelEvalJob flips a running eval job to Cancelled and invokes its
+// CancelFunc. Completion via cmd.Wait still fires DoneMsg normally.
+func (m *PipelineModel) CancelEvalJob(url string) {
+	j, ok := m.evalJobs[url]
+	if !ok || j.Status != JobRunning {
+		return
+	}
+	j.Status = JobCancelled
+	if j.Cancel != nil {
+		j.Cancel()
+	}
+}
+
+// PruneEvalJobs drops terminal-state eval jobs whose ToastUntil has passed.
+func (m *PipelineModel) PruneEvalJobs() {
+	if len(m.evalJobs) == 0 {
+		return
+	}
+	now := time.Now()
+	keep := m.evalJobOrder[:0]
+	for _, url := range m.evalJobOrder {
+		j, ok := m.evalJobs[url]
+		if !ok {
+			continue
+		}
+		if j.Status != JobRunning && !j.ToastUntil.IsZero() && now.After(j.ToastUntil) {
+			delete(m.evalJobs, url)
+			continue
+		}
+		keep = append(keep, url)
+	}
+	m.evalJobOrder = keep
+}
+
+// ---- Interview-prep job methods (mirror the PdfJob/EvalJob pattern) ----
+
+func (m *PipelineModel) CopyPrepJobsState(other *PipelineModel) {
+	if other == nil {
+		return
+	}
+	if m.prepJobs == nil {
+		m.prepJobs = make(map[string]*InterviewPrepJob)
+	}
+	for k, v := range other.prepJobs {
+		m.prepJobs[k] = v
+	}
+	m.prepJobOrder = append(m.prepJobOrder[:0], other.prepJobOrder...)
+}
+
+func (m *PipelineModel) StartPrepJob(j *InterviewPrepJob) {
+	if m.prepJobs == nil {
+		m.prepJobs = make(map[string]*InterviewPrepJob)
+	}
+	if _, exists := m.prepJobs[j.ReportPath]; !exists {
+		m.prepJobOrder = append(m.prepJobOrder, j.ReportPath)
+	}
+	m.prepJobs[j.ReportPath] = j
+}
+
+func (m *PipelineModel) UpdatePrepJobLabel(reportPath, label string) {
+	j, ok := m.prepJobs[reportPath]
+	if !ok || j.Status != JobRunning {
+		return
+	}
+	j.LastLabel = label
+}
+
+func (m *PipelineModel) CompletePrepJob(reportPath string, err error, exitCode int) {
+	j, ok := m.prepJobs[reportPath]
+	if !ok {
+		return
+	}
+	j.FinishedAt = time.Now()
+	j.Err = err
+	j.ExitCode = exitCode
+	switch {
+	case j.Status == JobCancelled:
+		j.ToastUntil = j.FinishedAt.Add(10 * time.Second)
+	case err != nil || exitCode != 0:
+		j.Status = JobFailed
+		j.ToastUntil = j.FinishedAt.Add(60 * time.Second)
+	default:
+		j.Status = JobSucceeded
+		j.ToastUntil = j.FinishedAt.Add(5 * time.Second)
+	}
+}
+
+func (m *PipelineModel) CancelPrepJob(reportPath string) {
+	j, ok := m.prepJobs[reportPath]
+	if !ok || j.Status != JobRunning {
+		return
+	}
+	j.Status = JobCancelled
+	if j.Cancel != nil {
+		j.Cancel()
+	}
+}
+
+func (m *PipelineModel) PrunePrepJobs() {
+	if len(m.prepJobs) == 0 {
+		return
+	}
+	now := time.Now()
+	keep := m.prepJobOrder[:0]
+	for _, k := range m.prepJobOrder {
+		j, ok := m.prepJobs[k]
+		if !ok {
+			continue
+		}
+		if j.Status != JobRunning && !j.ToastUntil.IsZero() && now.After(j.ToastUntil) {
+			delete(m.prepJobs, k)
+			continue
+		}
+		keep = append(keep, k)
+	}
+	m.prepJobOrder = keep
+}
+
+// SetInterviewPrepOnDisk replaces the prep-file-presence set. Called after a
+// prep job completes to refresh visibility of the `I open prep` keybind.
+func (m *PipelineModel) SetInterviewPrepOnDisk(prepOnDisk map[string]bool) {
+	if prepOnDisk == nil {
+		prepOnDisk = make(map[string]bool)
+	}
+	m.interviewPrepOnDisk = prepOnDisk
+}
+
+// CopyUIState carries cursor/scroll/tab/view-mode preferences across a
+// PipelineModel rebuild (pipelineReloadMsg). Without this, every reload
+// would dump the user back at row 0 of the ALL tab — too jarring for a
+// 30s auto-refresh or even an explicit `r` press.
+//
+// Cursor is clamped to the new collection size to avoid out-of-range.
+func (m *PipelineModel) CopyUIState(other *PipelineModel) {
+	if other == nil {
+		return
+	}
+	m.activeTab = other.activeTab
+	m.sortMode = other.sortMode
+	m.viewMode = other.viewMode
+	m.scrollOffset = other.scrollOffset
+
+	// Re-apply filter/sort with the carried-over tab + sort BEFORE clamping
+	// the cursor so we know the new collection sizes.
+	m.applyFilterAndSort()
+
+	// Clamp cursors against the rebuilt collections.
+	if m.currentFilter() == filterPending {
+		if other.pendingCursor < len(m.pending) {
+			m.pendingCursor = other.pendingCursor
+		} else if len(m.pending) > 0 {
+			m.pendingCursor = len(m.pending) - 1
+		}
+	} else {
+		if other.cursor < len(m.filtered) {
+			m.cursor = other.cursor
+		} else if len(m.filtered) > 0 {
+			m.cursor = len(m.filtered) - 1
+		}
+	}
+}
+
+// HasInterviewPrep reports whether an interview-prep file exists on disk for
+// the given report path. Used by the help-bar conditional logic.
+func (m PipelineModel) HasInterviewPrep(reportPath string) bool {
+	slug := interviewPrepSlugLocal(reportPath)
+	if slug == "" {
+		return false
+	}
+	return m.interviewPrepOnDisk[slug]
+}
+
+// interviewPrepSlugLocal is a package-local copy of the slug extractor in
+// data/career.go — keeps screens free of the data-package dependency that
+// would otherwise cause an import cycle.
+var reReportFilenameLocal = regexp.MustCompile(`^\d+-(.+)-\d{4}-\d{2}-\d{2}\.md$`)
+
+func interviewPrepSlugLocal(reportPath string) string {
+	base := filepath.Base(reportPath)
+	m := reReportFilenameLocal.FindStringSubmatch(base)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
+// SetPending replaces the pending queue without rebuilding the model.
+// Used after reload (pipelineReloadMsg) so the QUEUE tab refreshes.
+func (m *PipelineModel) SetPending(pending []model.PendingJob) {
+	m.pending = pending
+	// Keep cursor in range
+	if m.pendingCursor >= len(m.pending) {
+		m.pendingCursor = len(m.pending) - 1
+	}
+	if m.pendingCursor < 0 {
+		m.pendingCursor = 0
+	}
+}
+
+// CurrentPending returns the selected pending job on the QUEUE tab, if any.
+func (m PipelineModel) CurrentPending() (model.PendingJob, bool) {
+	if m.pendingCursor < 0 || m.pendingCursor >= len(m.pending) {
+		return model.PendingJob{}, false
+	}
+	return m.pending[m.pendingCursor], true
+}
+
+// currentFilter returns the filter key for the currently active tab.
+func (m PipelineModel) currentFilter() string {
+	if m.activeTab < 0 || m.activeTab >= len(pipelineTabs) {
+		return filterAll
+	}
+	return pipelineTabs[m.activeTab].filter
+}
+
+// HasActiveJobs returns true if any PDF, eval, or prep job is running or
+// still in its toast window. Used to decide whether the spinner ticker
+// should keep firing.
+func (m PipelineModel) HasActiveJobs() bool {
+	return len(m.jobs) > 0 || len(m.evalJobs) > 0 || len(m.prepJobs) > 0
+}
+
+// StartPDFJob registers a new running job and adds it to the display order.
+func (m *PipelineModel) StartPDFJob(j *PdfJob) {
+	if m.jobs == nil {
+		m.jobs = make(map[int]*PdfJob)
+	}
+	// Replace any terminal-state chip for this number — a fresh run supersedes.
+	if _, exists := m.jobs[j.Number]; !exists {
+		m.jobOrder = append(m.jobOrder, j.Number)
+	}
+	m.jobs[j.Number] = j
+}
+
+// UpdatePDFJobLabel sets the latest progress label for a running job.
+// No-op if the job is no longer running (race with DoneMsg arriving first).
+func (m *PipelineModel) UpdatePDFJobLabel(number int, label string) {
+	j, ok := m.jobs[number]
+	if !ok || j.Status != JobRunning {
+		return
+	}
+	j.LastLabel = label
+}
+
+// CompletePDFJob transitions a job to a terminal state and sets ToastUntil.
+// Toast durations:
+//   - JobSucceeded:  5s  (routine, user notices via PDF column flip)
+//   - JobCancelled:  10s (user-initiated; they already know)
+//   - JobFailed:     60s (user may have looked away during 8-15 min run;
+//                         long enough they can still see what broke)
+func (m *PipelineModel) CompletePDFJob(number int, err error, exitCode int) {
+	j, ok := m.jobs[number]
+	if !ok {
+		return
+	}
+	j.FinishedAt = time.Now()
+	j.Err = err
+	j.ExitCode = exitCode
+	switch {
+	case j.Status == JobCancelled:
+		j.ToastUntil = j.FinishedAt.Add(10 * time.Second)
+	case err != nil || exitCode != 0:
+		j.Status = JobFailed
+		j.ToastUntil = j.FinishedAt.Add(60 * time.Second)
+	default:
+		j.Status = JobSucceeded
+		j.ToastUntil = j.FinishedAt.Add(5 * time.Second)
+	}
+}
+
+// CancelPDFJob flips a running job to Cancelled and invokes its CancelFunc.
+// The subprocess's exit will still trigger DoneMsg → CompletePDFJob; we just
+// pre-stamp the Cancelled status so CompletePDFJob doesn't overwrite it.
+func (m *PipelineModel) CancelPDFJob(number int) {
+	j, ok := m.jobs[number]
+	if !ok || j.Status != JobRunning {
+		return
+	}
+	j.Status = JobCancelled
+	if j.Cancel != nil {
+		j.Cancel()
+	}
+}
+
+// PrunePDFJobs removes terminal-state jobs whose ToastUntil has passed.
+// Safe to call every tick.
+func (m *PipelineModel) PrunePDFJobs() {
+	if len(m.jobs) == 0 {
+		return
+	}
+	now := time.Now()
+	keep := m.jobOrder[:0]
+	for _, num := range m.jobOrder {
+		j, ok := m.jobs[num]
+		if !ok {
+			continue
+		}
+		if j.Status != JobRunning && !j.ToastUntil.IsZero() && now.After(j.ToastUntil) {
+			delete(m.jobs, num)
+			continue
+		}
+		keep = append(keep, num)
+	}
+	m.jobOrder = keep
+}
+
+// HasActivePDFJobs returns true if any job is running or a chip is still in
+// its toast window. Used to decide whether the spinner ticker should keep
+// firing.
+func (m PipelineModel) HasActivePDFJobs() bool {
+	return len(m.jobs) > 0
+}
+
+// AdvanceSpinner bumps the spinner frame counter.
+func (m *PipelineModel) AdvanceSpinner() {
+	m.spinnerFrame = (m.spinnerFrame + 1) % len(spinnerFrames)
+}
+
+// spinnerFrames is the brail-dots animation used in the jobs bar.
+var spinnerFrames = []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
+
 // CurrentApp returns the currently selected application, if any.
 func (m PipelineModel) CurrentApp() (model.CareerApplication, bool) {
 	if m.cursor < 0 || m.cursor >= len(m.filtered) {
@@ -189,7 +796,15 @@ func (m PipelineModel) handleKey(msg tea.KeyMsg) (PipelineModel, tea.Cmd) {
 		return m, func() tea.Msg { return PipelineClosedMsg{} }
 
 	case "down":
-		if len(m.filtered) > 0 {
+		if m.currentFilter() == filterPending {
+			if len(m.pending) > 0 {
+				m.pendingCursor++
+				if m.pendingCursor >= len(m.pending) {
+					m.pendingCursor = len(m.pending) - 1
+				}
+				m.adjustScroll()
+			}
+		} else if len(m.filtered) > 0 {
 			m.cursor++
 			if m.cursor >= len(m.filtered) {
 				m.cursor = len(m.filtered) - 1
@@ -199,7 +814,15 @@ func (m PipelineModel) handleKey(msg tea.KeyMsg) (PipelineModel, tea.Cmd) {
 		}
 
 	case "up":
-		if len(m.filtered) > 0 {
+		if m.currentFilter() == filterPending {
+			if len(m.pending) > 0 {
+				m.pendingCursor--
+				if m.pendingCursor < 0 {
+					m.pendingCursor = 0
+				}
+				m.adjustScroll()
+			}
+		} else if len(m.filtered) > 0 {
 			m.cursor--
 			if m.cursor < 0 {
 				m.cursor = 0
@@ -266,6 +889,118 @@ func (m PipelineModel) handleKey(msg tea.KeyMsg) (PipelineModel, tea.Cmd) {
 		if len(m.filtered) > 0 {
 			m.statusPicker = true
 			m.statusCursor = 0
+		}
+
+	case "p":
+		if app, ok := m.CurrentApp(); ok && app.ReportPath != "" {
+			// Refuse duplicate: if a job for this row is already running,
+			// do nothing. The user can press `x` to cancel first.
+			if j, exists := m.jobs[app.Number]; exists && j.Status == JobRunning {
+				return m, nil
+			}
+			return m, func() tea.Msg {
+				return PipelineStartPDFMsg{
+					CareerOpsPath: m.careerOpsPath,
+					ReportPath:    app.ReportPath,
+					Company:       app.Company,
+					Role:          app.Role,
+					Number:        app.Number,
+				}
+			}
+		}
+
+	case "x":
+		// On QUEUE tab: cancel running eval for selected pending URL
+		if m.currentFilter() == filterPending {
+			if pj, ok := m.CurrentPending(); ok {
+				if j, exists := m.evalJobs[pj.URL]; exists && j.Status == JobRunning {
+					return m, func() tea.Msg {
+						return PipelineCancelEvalMsg{URL: pj.URL}
+					}
+				}
+			}
+			return m, nil
+		}
+		// On applications tabs: cancel whichever kind of job is running for
+		// the selected row. Priority: prep > pdf (either is the user's most
+		// likely intent if both happen to be active).
+		if app, ok := m.CurrentApp(); ok {
+			if j, exists := m.prepJobs[app.ReportPath]; exists && j.Status == JobRunning {
+				return m, func() tea.Msg {
+					return PipelineCancelInterviewPrepMsg{ReportPath: app.ReportPath}
+				}
+			}
+			if j, exists := m.jobs[app.Number]; exists && j.Status == JobRunning {
+				return m, func() tea.Msg {
+					return PipelineCancelPDFMsg{Number: app.Number}
+				}
+			}
+		}
+
+	case "e":
+		// Evaluate a single pending URL — only on QUEUE tab.
+		if m.currentFilter() == filterPending {
+			if pj, ok := m.CurrentPending(); ok && pj.URL != "" {
+				if j, exists := m.evalJobs[pj.URL]; exists && j.Status == JobRunning {
+					return m, nil // refuse duplicate
+				}
+				return m, func() tea.Msg {
+					return PipelineStartEvalMsg{
+						CareerOpsPath: m.careerOpsPath,
+						URL:           pj.URL,
+						Company:       pj.Company,
+						Role:          pj.Role,
+					}
+				}
+			}
+		}
+
+	case "P":
+		if app, ok := m.CurrentApp(); ok && m.pdfOnDisk[app.ReportNum()] {
+			path := data.PDFPathForNumber(m.careerOpsPath, app.ReportNum())
+			if path != "" {
+				return m, func() tea.Msg {
+					return PipelineOpenPDFMsg{Path: path}
+				}
+			}
+		}
+
+	case "i":
+		// Generate interview-prep (only when no prep file exists AND app
+		// has a report to anchor research off of).
+		if app, ok := m.CurrentApp(); ok && app.ReportPath != "" && !m.HasInterviewPrep(app.ReportPath) {
+			// Refuse if already running
+			if j, exists := m.prepJobs[app.ReportPath]; exists && j.Status == JobRunning {
+				return m, nil
+			}
+			return m, func() tea.Msg {
+				return PipelineStartInterviewPrepMsg{
+					CareerOpsPath: m.careerOpsPath,
+					ReportPath:    app.ReportPath,
+					Company:       app.Company,
+					Role:          app.Role,
+				}
+			}
+		}
+
+	case "I":
+		// Open an existing interview-prep file in the viewer.
+		if app, ok := m.CurrentApp(); ok && m.HasInterviewPrep(app.ReportPath) {
+			path := data.InterviewPrepPathForReport(m.careerOpsPath, app.ReportPath)
+			if path != "" {
+				title := fmt.Sprintf("Interview prep: %s — %s", app.Company, app.Role)
+				return m, func() tea.Msg {
+					return PipelineOpenInterviewPrepMsg{Path: path, Title: title}
+				}
+			}
+		}
+
+	case "r":
+		// Manual refresh — re-scan applications.md, pipeline.md, output/,
+		// interview-prep/. Useful when external processes (batch runs,
+		// scans) have changed state since the dashboard was launched.
+		return m, func() tea.Msg {
+			return PipelineRefreshMsg{}
 		}
 
 	case "pgdown", "ctrl+d":
@@ -449,6 +1184,7 @@ func (m PipelineModel) View() string {
 	sortBar := m.renderSortBar()
 	body := m.renderBody()
 	preview := m.renderPreview()
+	jobsBar := m.renderJobsBar()
 	help := m.renderHelp()
 
 	// Apply scroll to body
@@ -459,7 +1195,11 @@ func (m PipelineModel) View() string {
 
 	// Calculate available height for body
 	previewLines := strings.Count(preview, "\n") + 1
-	availHeight := m.height - 7 - previewLines // header + tabs(2) + metrics + sortbar + help + preview
+	jobsBarLines := 0
+	if jobsBar != "" {
+		jobsBarLines = strings.Count(jobsBar, "\n") + 1
+	}
+	availHeight := m.height - 7 - previewLines - jobsBarLines // header + tabs(2) + metrics + sortbar + help + preview + jobsBar
 	if availHeight < 3 {
 		availHeight = 3
 	}
@@ -473,15 +1213,12 @@ func (m PipelineModel) View() string {
 		body = m.overlayStatusPicker(body)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		tabs,
-		metricsBar,
-		sortBar,
-		body,
-		preview,
-		help,
-	)
+	parts := []string{header, tabs, metricsBar, sortBar, body, preview}
+	if jobsBar != "" {
+		parts = append(parts, jobsBar)
+	}
+	parts = append(parts, help)
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 func (m PipelineModel) renderHeader() string {
@@ -496,7 +1233,7 @@ func (m PipelineModel) renderHeader() string {
 	avg := fmt.Sprintf("%.1f", m.metrics.AvgScore)
 	info := right.Render(fmt.Sprintf("%d offers | Avg %s/5", m.metrics.Total, avg))
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Blue).Render("CAREER PIPELINE")
+	title := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Blue).Render("FABER")
 	gap := m.width - lipgloss.Width(title) - lipgloss.Width(info) - 4
 	if gap < 1 {
 		gap = 1
@@ -538,6 +1275,10 @@ func (m PipelineModel) renderTabs() string {
 }
 
 func (m PipelineModel) countForFilter(filter string) int {
+	// QUEUE (pending) uses a different data source than the applications list
+	if filter == filterPending {
+		return len(m.pending)
+	}
 	count := 0
 	for _, app := range m.apps {
 		norm := data.NormalizeStatus(app.Status)
@@ -593,6 +1334,11 @@ func (m PipelineModel) renderSortBar() string {
 }
 
 func (m PipelineModel) renderBody() string {
+	// QUEUE tab uses a different data source and row format
+	if m.currentFilter() == filterPending {
+		return m.renderPendingBody()
+	}
+
 	if len(m.filtered) == 0 {
 		emptyStyle := lipgloss.NewStyle().
 			Foreground(m.theme.Subtext).
@@ -629,16 +1375,145 @@ func (m PipelineModel) renderBody() string {
 	return strings.Join(lines, "\n")
 }
 
+// renderPendingBody renders the QUEUE tab — unchecked rows from
+// data/pipeline.md, grouped by section header when in grouped view mode.
+func (m PipelineModel) renderPendingBody() string {
+	if len(m.pending) == 0 {
+		emptyStyle := lipgloss.NewStyle().
+			Foreground(m.theme.Subtext).
+			Padding(1, 2)
+		return emptyStyle.Render("No pending URLs. Run /faber scan to discover more.")
+	}
+
+	var lines []string
+	prevSection := ""
+	padStyle := lipgloss.NewStyle().Padding(0, 2)
+
+	for i, pj := range m.pending {
+		if m.viewMode == "grouped" && pj.Section != prevSection {
+			section := pj.Section
+			if section == "" {
+				section = "Uncategorized"
+			}
+			headerStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(m.theme.Subtext)
+			lines = append(lines, padStyle.Render(
+				headerStyle.Render(fmt.Sprintf("── %s %s",
+					strings.ToUpper(section),
+					strings.Repeat("─", max(0, m.width-30-len(section))))),
+			))
+			prevSection = pj.Section
+		}
+		selected := i == m.pendingCursor
+		lines = append(lines, m.renderPendingRow(pj, selected))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// renderPendingRow formats one QUEUE row: { job-status-glyph  host  company  role }.
+// job-status-glyph shows the spinner if an eval job is running for this URL,
+// "✓" if just completed and still in toast window, "✗" on failure, blank otherwise.
+func (m PipelineModel) renderPendingRow(pj model.PendingJob, selected bool) string {
+	padStyle := lipgloss.NewStyle().Padding(0, 2)
+
+	hostW := 22
+	companyW := 16
+	statusGlyphW := 2
+	roleW := m.width - hostW - companyW - statusGlyphW - 10
+	if roleW < 15 {
+		roleW = 15
+	}
+
+	// Eval status glyph (2 chars)
+	var statusGlyph string
+	if j, ok := m.evalJobs[pj.URL]; ok {
+		switch j.Status {
+		case JobRunning:
+			statusGlyph = lipgloss.NewStyle().Foreground(m.theme.Blue).Bold(true).Render(spinnerFrames[m.spinnerFrame]) + " "
+		case JobSucceeded:
+			statusGlyph = lipgloss.NewStyle().Foreground(m.theme.Green).Bold(true).Render("✓") + " "
+		case JobFailed:
+			statusGlyph = lipgloss.NewStyle().Foreground(m.theme.Red).Bold(true).Render("✗") + " "
+		case JobCancelled:
+			statusGlyph = lipgloss.NewStyle().Foreground(m.theme.Yellow).Bold(true).Render("⊘") + " "
+		}
+	}
+	if statusGlyph == "" {
+		statusGlyph = "  "
+	}
+
+	// Host — parsed from URL
+	host := hostFromURL(pj.URL)
+	if len(host) > hostW {
+		host = host[:hostW-3] + "..."
+	}
+	hostStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext).Width(hostW)
+
+	// Company (may be empty)
+	company := pj.Company
+	if len(company) > companyW {
+		company = company[:companyW-3] + "..."
+	}
+	companyStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Width(companyW)
+
+	// Role (may be empty)
+	role := pj.Role
+	if role == "" {
+		role = lipgloss.NewStyle().Foreground(m.theme.Overlay).Italic(true).Render("(no role hint)")
+	} else if len(role) > roleW {
+		role = role[:roleW-3] + "..."
+	}
+	roleStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext).Width(roleW)
+
+	line := fmt.Sprintf(" %s%s %s %s",
+		statusGlyph,
+		hostStyle.Render(host),
+		companyStyle.Render(company),
+		roleStyle.Render(role),
+	)
+
+	if selected {
+		selStyle := lipgloss.NewStyle().
+			Background(m.theme.Overlay).
+			Width(m.width - 4)
+		return padStyle.Render(selStyle.Render(line))
+	}
+	return padStyle.Render(line)
+}
+
+// hostFromURL extracts a compact hostname from a URL, stripping "www.".
+// Returns a fallback if the URL doesn't parse (e.g. "local:" prefix).
+func hostFromURL(raw string) string {
+	if strings.HasPrefix(raw, "local:") {
+		return "local"
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		// Defensive fallback: take chars up to first "/"
+		if i := strings.Index(raw, "://"); i >= 0 {
+			rest := raw[i+3:]
+			if j := strings.Index(rest, "/"); j >= 0 {
+				return rest[:j]
+			}
+			return rest
+		}
+		return raw
+	}
+	return strings.TrimPrefix(u.Host, "www.")
+}
+
 func (m PipelineModel) renderAppLine(app model.CareerApplication, selected bool) string {
 	padStyle := lipgloss.NewStyle().Padding(0, 2)
 
 	// Column widths
 	scoreW := 5   // "4.5  "
+	pdfW := 2     // "✓ " / "? " / "  "
 	companyW := 20
 	statusW := 12
 	compW := 14
 	// Role gets remaining space
-	roleW := m.width - scoreW - companyW - statusW - compW - 10
+	roleW := m.width - scoreW - pdfW - companyW - statusW - compW - 10
 	if roleW < 15 {
 		roleW = 15
 	}
@@ -646,6 +1521,22 @@ func (m PipelineModel) renderAppLine(app model.CareerApplication, selected bool)
 	// Score with color
 	scoreStyle := m.scoreStyle(app.Score)
 	score := scoreStyle.Render(fmt.Sprintf("%.1f", app.Score))
+
+	// PDF 3-state indicator:
+	//   "  " — tracker says no PDF (HasPDF=false)
+	//   "✓ " — tracker ✅ AND file on disk
+	//   "? " — tracker ✅ but file missing from disk
+	// Lookup keys on ReportNum (artifact id), not Number (row id) — see
+	// model.CareerApplication doc for why these can drift.
+	var pdfIndicator string
+	switch {
+	case !app.HasPDF:
+		pdfIndicator = "  "
+	case m.pdfOnDisk[app.ReportNum()]:
+		pdfIndicator = lipgloss.NewStyle().Foreground(m.theme.Green).Render("✓") + " "
+	default:
+		pdfIndicator = lipgloss.NewStyle().Foreground(m.theme.Yellow).Render("?") + " "
+	}
 
 	// Company (truncate)
 	company := app.Company
@@ -678,8 +1569,9 @@ func (m PipelineModel) renderAppLine(app model.CareerApplication, selected bool)
 		compText = compStyle.Render(comp)
 	}
 
-	line := fmt.Sprintf(" %s %s %s %s %s",
+	line := fmt.Sprintf(" %s %s%s %s %s %s",
 		score,
+		pdfIndicator,
 		companyStyle.Render(company),
 		roleStyle.Render(role),
 		statusText,
@@ -743,6 +1635,184 @@ func (m PipelineModel) renderPreview() string {
 	return strings.Join(lines, "\n")
 }
 
+// renderJobsBar renders the active PDF job status bar. Empty string when
+// no jobs are active (collapses to zero height in the View composition).
+func (m PipelineModel) renderJobsBar() string {
+	if len(m.jobOrder) == 0 && len(m.evalJobOrder) == 0 && len(m.prepJobOrder) == 0 {
+		return ""
+	}
+
+	style := lipgloss.NewStyle().
+		Foreground(m.theme.Subtext).
+		Background(m.theme.Surface).
+		Width(m.width).
+		Padding(0, 1)
+
+	spinnerStyle := lipgloss.NewStyle().Foreground(m.theme.Blue).Bold(true)
+	successStyle := lipgloss.NewStyle().Foreground(m.theme.Green).Bold(true)
+	failStyle := lipgloss.NewStyle().Foreground(m.theme.Red).Bold(true)
+	cancelStyle := lipgloss.NewStyle().Foreground(m.theme.Yellow).Bold(true)
+	chipStyle := lipgloss.NewStyle().Foreground(m.theme.Text)
+	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Overlay)
+	kindStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
+
+	statusGlyph := func(s PdfJobStatus) string {
+		switch s {
+		case JobRunning:
+			return spinnerStyle.Render(spinnerFrames[m.spinnerFrame])
+		case JobSucceeded:
+			return successStyle.Render("✓")
+		case JobFailed:
+			return failStyle.Render("✗")
+		case JobCancelled:
+			return cancelStyle.Render("⊘")
+		}
+		return ""
+	}
+
+	var chips []string
+	now := time.Now()
+
+	// PDF job chips
+	for _, num := range m.jobOrder {
+		j, ok := m.jobs[num]
+		if !ok {
+			continue
+		}
+
+		company := j.Company
+		if len(company) > 14 {
+			company = company[:13] + "…"
+		}
+
+		var elapsed time.Duration
+		if j.FinishedAt.IsZero() {
+			elapsed = now.Sub(j.StartedAt)
+		} else {
+			elapsed = j.FinishedAt.Sub(j.StartedAt)
+		}
+
+		chip := fmt.Sprintf("%s %s #%d %s (%s)",
+			statusGlyph(j.Status),
+			kindStyle.Render("PDF"),
+			j.Number,
+			chipStyle.Render(company),
+			formatElapsed(elapsed),
+		)
+
+		if j.Status == JobRunning && j.LastLabel != "" {
+			label := j.LastLabel
+			if len(label) > 24 {
+				label = label[:23] + "…"
+			}
+			chip += " " + labelStyle.Render(label)
+		} else if j.Status == JobFailed && j.Err != nil {
+			errStr := j.Err.Error()
+			if len(errStr) > 30 {
+				errStr = errStr[:29] + "…"
+			}
+			chip += " " + failStyle.Render(errStr)
+		}
+		chips = append(chips, chip)
+	}
+
+	// Eval job chips
+	for _, u := range m.evalJobOrder {
+		j, ok := m.evalJobs[u]
+		if !ok {
+			continue
+		}
+
+		// Prefer company hint if we have one, otherwise show URL host
+		ident := j.Company
+		if ident == "" {
+			ident = hostFromURL(u)
+		}
+		if len(ident) > 16 {
+			ident = ident[:15] + "…"
+		}
+
+		var elapsed time.Duration
+		if j.FinishedAt.IsZero() {
+			elapsed = now.Sub(j.StartedAt)
+		} else {
+			elapsed = j.FinishedAt.Sub(j.StartedAt)
+		}
+
+		chip := fmt.Sprintf("%s %s %s (%s)",
+			statusGlyph(j.Status),
+			kindStyle.Render("EVAL"),
+			chipStyle.Render(ident),
+			formatElapsed(elapsed),
+		)
+
+		if j.Status == JobRunning && j.LastLabel != "" {
+			label := j.LastLabel
+			if len(label) > 24 {
+				label = label[:23] + "…"
+			}
+			chip += " " + labelStyle.Render(label)
+		} else if j.Status == JobFailed && j.Err != nil {
+			errStr := j.Err.Error()
+			if len(errStr) > 30 {
+				errStr = errStr[:29] + "…"
+			}
+			chip += " " + failStyle.Render(errStr)
+		}
+		chips = append(chips, chip)
+	}
+
+	// Interview-prep job chips
+	for _, rp := range m.prepJobOrder {
+		j, ok := m.prepJobs[rp]
+		if !ok {
+			continue
+		}
+		ident := j.Company
+		if ident == "" {
+			ident = interviewPrepSlugLocal(rp)
+		}
+		if len(ident) > 16 {
+			ident = ident[:15] + "…"
+		}
+		var elapsed time.Duration
+		if j.FinishedAt.IsZero() {
+			elapsed = now.Sub(j.StartedAt)
+		} else {
+			elapsed = j.FinishedAt.Sub(j.StartedAt)
+		}
+		chip := fmt.Sprintf("%s %s %s (%s)",
+			statusGlyph(j.Status),
+			kindStyle.Render("PREP"),
+			chipStyle.Render(ident),
+			formatElapsed(elapsed),
+		)
+		if j.Status == JobRunning && j.LastLabel != "" {
+			label := j.LastLabel
+			if len(label) > 24 {
+				label = label[:23] + "…"
+			}
+			chip += " " + labelStyle.Render(label)
+		} else if j.Status == JobFailed && j.Err != nil {
+			errStr := j.Err.Error()
+			if len(errStr) > 30 {
+				errStr = errStr[:29] + "…"
+			}
+			chip += " " + failStyle.Render(errStr)
+		}
+		chips = append(chips, chip)
+	}
+
+	return style.Render(strings.Join(chips, "  │  "))
+}
+
+func formatElapsed(d time.Duration) string {
+	total := int(d.Seconds())
+	m := total / 60
+	s := total % 60
+	return fmt.Sprintf("%d:%02d", m, s)
+}
+
 func (m PipelineModel) renderHelp() string {
 	style := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
@@ -760,13 +1830,78 @@ func (m PipelineModel) renderHelp() string {
 				keyStyle.Render("Esc") + descStyle.Render(" cancel"))
 	}
 
-	brand := lipgloss.NewStyle().Foreground(m.theme.Overlay).Render("career-ops by santifer.io")
+	brand := lipgloss.NewStyle().Foreground(m.theme.Overlay).Render("faber")
+
+	// Conditional keybindings based on active tab + selected row state
+	var cancelChunk, openPDFChunk, evalChunk string
+
+	if m.currentFilter() == filterPending {
+		// QUEUE tab: show e/eval and x/cancel only when relevant
+		if pj, ok := m.CurrentPending(); ok {
+			if pj.URL != "" {
+				if j, exists := m.evalJobs[pj.URL]; !exists || j.Status != JobRunning {
+					evalChunk = keyStyle.Render("e") + descStyle.Render(" eval  ")
+				}
+				if j, exists := m.evalJobs[pj.URL]; exists && j.Status == JobRunning {
+					cancelChunk = keyStyle.Render("x") + descStyle.Render(" cancel  ")
+				}
+			}
+		}
+
+		keys := keyStyle.Render("↑↓") + descStyle.Render(" nav  ") +
+			keyStyle.Render("←→") + descStyle.Render(" tabs  ") +
+			evalChunk +
+			cancelChunk +
+			keyStyle.Render("v") + descStyle.Render(" view  ") +
+			keyStyle.Render("Esc") + descStyle.Render(" quit")
+
+		brand := lipgloss.NewStyle().Foreground(m.theme.Overlay).Render("faber")
+		gap := m.width - lipgloss.Width(keys) - lipgloss.Width(brand) - 2
+		if gap < 1 {
+			gap = 1
+		}
+		return style.Render(keys + strings.Repeat(" ", gap) + brand)
+	}
+
+	// Applications tabs: show x/cancel, P/open PDF, i/I interview prep
+	var prepChunk, openPrepChunk string
+	if app, ok := m.CurrentApp(); ok {
+		// Cancel applies to whichever job kind is running for this row
+		pdfRunning := false
+		if j, exists := m.jobs[app.Number]; exists && j.Status == JobRunning {
+			pdfRunning = true
+		}
+		prepRunning := false
+		if j, exists := m.prepJobs[app.ReportPath]; exists && j.Status == JobRunning {
+			prepRunning = true
+		}
+		if pdfRunning || prepRunning {
+			cancelChunk = keyStyle.Render("x") + descStyle.Render(" cancel  ")
+		}
+		if m.pdfOnDisk[app.Number] {
+			openPDFChunk = keyStyle.Render("P") + descStyle.Render(" open PDF  ")
+		}
+		// Interview prep keys — only show when an app has a report to work from
+		if app.ReportPath != "" {
+			if m.HasInterviewPrep(app.ReportPath) {
+				openPrepChunk = keyStyle.Render("I") + descStyle.Render(" open prep  ")
+			} else {
+				prepChunk = keyStyle.Render("i") + descStyle.Render(" prep  ")
+			}
+		}
+	}
 
 	keys := keyStyle.Render("↑↓") + descStyle.Render(" nav  ") +
 		keyStyle.Render("←→") + descStyle.Render(" tabs  ") +
 		keyStyle.Render("s") + descStyle.Render(" sort  ") +
 		keyStyle.Render("Enter") + descStyle.Render(" report  ") +
 		keyStyle.Render("o") + descStyle.Render(" open URL  ") +
+		keyStyle.Render("p") + descStyle.Render(" pdf  ") +
+		openPDFChunk +
+		prepChunk +
+		openPrepChunk +
+		cancelChunk +
+		keyStyle.Render("r") + descStyle.Render(" refresh  ") +
 		keyStyle.Render("c") + descStyle.Render(" change  ") +
 		keyStyle.Render("v") + descStyle.Render(" view  ") +
 		keyStyle.Render("Esc") + descStyle.Render(" quit")

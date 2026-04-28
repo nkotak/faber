@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/santifer/career-ops/dashboard/internal/model"
+	"faber/dashboard/internal/model"
 )
 
 var (
@@ -22,7 +22,131 @@ var (
 	reArchetypeColon = regexp.MustCompile(`(?i)\*\*Arquetipo:\*\*\s*(.+)`)
 	reReportURL      = regexp.MustCompile(`(?m)^\*\*URL:\*\*\s*(https?://\S+)`)
 	reBatchID        = regexp.MustCompile(`(?m)^\*\*Batch ID:\*\*\s*(\d+)`)
+
+	// reOutputPDF matches the canonical output filename and captures the
+	// report number. Format: cv-{NUM}-{slug}-{YYYY-MM-DD}.pdf
+	reOutputPDF = regexp.MustCompile(`^cv-(\d+)-.*\.pdf$`)
 )
+
+// ScanOutputPDFs reads {careerOpsPath}/output/ and returns the set of
+// REPORT numbers for which a generated PDF exists on disk. The regex
+// matches the canonical `cv-{num}-{slug}-{date}.pdf` convention
+// where {num} is the report number (NOT the tracker row `#`) — see
+// modes/pdf.md "Filename convention". Files outside that pattern are
+// ignored (e.g. .DS_Store, .gitkeep, or manually-placed PDFs with
+// different names).
+//
+// Callers must look up entries with app.ReportNum(), not app.Number —
+// the two drift when the tracker has rows without reports. See
+// model.CareerApplication for details.
+//
+// Called at startup and after every pipelineReloadMsg (i.e. after every
+// PDF job completes). O(n) on the number of files in output/ — typically
+// <200 even for heavy users.
+func ScanOutputPDFs(careerOpsPath string) map[int]bool {
+	result := make(map[int]bool)
+	dir := filepath.Join(careerOpsPath, "output")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return result
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		m := reOutputPDF.FindStringSubmatch(e.Name())
+		if m == nil {
+			continue
+		}
+		n, err := strconv.Atoi(m[1])
+		if err != nil {
+			continue
+		}
+		result[n] = true
+	}
+	return result
+}
+
+// PDFPathForNumber looks up a generated PDF path by application number.
+// Returns the first match of `output/cv-{num}-*.pdf` or "" if none.
+// Useful for the "open PDF" action in the dashboard.
+//
+// Handles both the canonical zero-padded format (cv-001-*.pdf) and
+// any legacy unpadded filenames. Tries padded first since that's the
+// convention enforced by modes/pdf.md + batch/batch-prompt.md.
+func PDFPathForNumber(careerOpsPath string, number int) string {
+	patterns := []string{
+		filepath.Join(careerOpsPath, "output", fmt.Sprintf("cv-%03d-*.pdf", number)),
+		filepath.Join(careerOpsPath, "output", fmt.Sprintf("cv-%d-*.pdf", number)),
+	}
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
+		if err == nil && len(matches) > 0 {
+			return matches[0]
+		}
+	}
+	return ""
+}
+
+// reReportFilename extracts the "slug" portion from a report filename:
+//
+//	reports/009-cohere-safety-research-2026-04-21.md  →  cohere-safety-research
+//
+// This slug is the same identifier used for interview-prep/{slug}.md.
+var reReportFilename = regexp.MustCompile(`^\d+-(.+)-\d{4}-\d{2}-\d{2}\.md$`)
+
+// interviewPrepSlugForReportPath derives the interview-prep slug from a
+// report's relative path. Returns "" if the filename doesn't match the
+// canonical `{NUM}-{slug}-{YYYY-MM-DD}.md` pattern.
+func interviewPrepSlugForReportPath(reportPath string) string {
+	base := filepath.Base(reportPath)
+	m := reReportFilename.FindStringSubmatch(base)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
+// InterviewPrepPathForReport returns the absolute path to the interview-prep
+// file for a given report path, or "" if no such file exists.
+// Convention: interview-prep/{report-slug}.md
+func InterviewPrepPathForReport(careerOpsPath, reportPath string) string {
+	slug := interviewPrepSlugForReportPath(reportPath)
+	if slug == "" {
+		return ""
+	}
+	p := filepath.Join(careerOpsPath, "interview-prep", slug+".md")
+	if _, err := os.Stat(p); err != nil {
+		return ""
+	}
+	return p
+}
+
+// ScanInterviewPrep reads {careerOpsPath}/interview-prep/ and returns the set
+// of slugs that have a matching file. Called at startup and after every
+// job completion so the dashboard's "I open prep" / "i generate prep"
+// keybindings can toggle correctly without per-render disk stat calls.
+func ScanInterviewPrep(careerOpsPath string) map[string]bool {
+	result := make(map[string]bool)
+	dir := filepath.Join(careerOpsPath, "interview-prep")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return result
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Skip the shared story bank and any non-.md files.
+		if name == "story-bank.md" || !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		slug := strings.TrimSuffix(name, ".md")
+		result[slug] = true
+	}
+	return result
+}
 
 // ParseApplications reads applications.md and returns parsed applications.
 // It tries both {path}/applications.md and {path}/data/applications.md for compatibility.
@@ -40,7 +164,7 @@ func ParseApplications(careerOpsPath string) []model.CareerApplication {
 
 	lines := strings.Split(string(content), "\n")
 	apps := make([]model.CareerApplication, 0)
-	num := 0
+	rowCounter := 0 // fallback if fields[0] doesn't parse as int
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -74,9 +198,19 @@ func ParseApplications(careerOpsPath string) []model.CareerApplication {
 			continue
 		}
 
-		num++
+		rowCounter++
+		// Number = the actual `#` column from applications.md (the canonical
+		// app id). Falls back to the row counter only if the column doesn't
+		// parse — which would only happen for malformed rows. The dashboard's
+		// PDF-on-disk lookup, report links, and tracker writes ALL key off
+		// this number, so it MUST match the report filename's number prefix.
+		number, err := strconv.Atoi(fields[0])
+		if err != nil {
+			number = rowCounter
+		}
+
 		app := model.CareerApplication{
-			Number:  num,
+			Number:  number,
 			Date:    fields[1],
 			Company: fields[2],
 			Role:    fields[3],
@@ -463,7 +597,7 @@ func ComputeMetrics(apps []model.CareerApplication) model.PipelineMetrics {
 }
 
 // NormalizeStatus normalizes raw status text to a canonical form.
-// Aliases match states.yml -- keep in sync with career-ops/states.yml
+// Aliases match states.yml -- keep in sync with faber/states.yml
 func NormalizeStatus(raw string) string {
 	// Strip markdown bold and trailing dates
 	s := strings.ReplaceAll(raw, "**", "")
@@ -581,6 +715,105 @@ func cleanTableCell(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.TrimRight(s, "|")
 	return strings.TrimSpace(s)
+}
+
+// rePendingRow matches an unchecked pipeline.md entry.
+// Examples:
+//   - [ ] https://url
+//   - [ ] https://url | Company | Role
+//   - [ ] https://url | Company | Role | note
+var rePendingRow = regexp.MustCompile(`^\s*-\s*\[\s*\]\s*(\S+?)(?:\s*\|\s*(.+))?$`)
+
+// ParsePipelinePending reads data/pipeline.md and returns unchecked rows
+// (items marked `- [ ]`). Rows marked `- [x]` (processed) and `- [!]`
+// (blocked) are skipped. The Section field captures the nearest preceding
+// `##` or `###` header so the dashboard can group/display by category.
+//
+// Returns an empty slice (not nil) if the file is missing or empty.
+func ParsePipelinePending(careerOpsPath string) []model.PendingJob {
+	out := []model.PendingJob{}
+	// Try both {path}/pipeline.md and {path}/data/pipeline.md for parity
+	// with ParseApplications's lookup.
+	candidates := []string{
+		filepath.Join(careerOpsPath, "data", "pipeline.md"),
+		filepath.Join(careerOpsPath, "pipeline.md"),
+	}
+	var content []byte
+	var err error
+	for _, p := range candidates {
+		content, err = os.ReadFile(p)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return out
+	}
+
+	var section string
+	for i, raw := range strings.Split(string(content), "\n") {
+		line := strings.TrimRight(raw, "\r")
+		trimmed := strings.TrimSpace(line)
+
+		// Section header — remember the most recent ### (preferred) or ##
+		if strings.HasPrefix(trimmed, "### ") {
+			section = strings.TrimSpace(strings.TrimPrefix(trimmed, "###"))
+			// Strip trailing "— 2026-04-20" date tags if present
+			if idx := strings.Index(section, "—"); idx > 0 {
+				section = strings.TrimSpace(section[:idx])
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "## ") {
+			hdr := strings.TrimSpace(strings.TrimPrefix(trimmed, "##"))
+			// Only use ## as a fallback if no ### has been seen yet in this group
+			if idx := strings.Index(hdr, "—"); idx > 0 {
+				hdr = strings.TrimSpace(hdr[:idx])
+			}
+			// "Pending" headers are generic — keep the last ### instead
+			if hdr != "Pending" && hdr != "Processed" {
+				section = hdr
+			}
+			continue
+		}
+
+		// Reset section on empty line inside a header's section block? No —
+		// sections persist until another header appears.
+
+		m := rePendingRow.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		url := m[1]
+		// Guard: must look like a URL (http/https/local:)
+		if !strings.HasPrefix(url, "http://") &&
+			!strings.HasPrefix(url, "https://") &&
+			!strings.HasPrefix(url, "local:") {
+			continue
+		}
+
+		company := ""
+		role := ""
+		if len(m) > 2 && m[2] != "" {
+			parts := strings.Split(m[2], "|")
+			if len(parts) > 0 {
+				company = strings.TrimSpace(parts[0])
+			}
+			if len(parts) > 1 {
+				role = strings.TrimSpace(parts[1])
+			}
+		}
+
+		out = append(out, model.PendingJob{
+			URL:        url,
+			Company:    company,
+			Role:       role,
+			Section:    section,
+			LineNumber: i + 1,
+			RawLine:    line,
+		})
+	}
+	return out
 }
 
 // StatusPriority returns the sort priority for a status (lower = higher priority).

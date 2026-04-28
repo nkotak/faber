@@ -1,6 +1,6 @@
 # Codex Setup
 
-Career-Ops supports Codex through the root `AGENTS.md` file.
+Faber supports Codex through the root `AGENTS.md` file.
 
 If your Codex client reads project instructions automatically, `AGENTS.md`
 is enough for routing and behavior. Codex should reuse the same checked-in
@@ -23,17 +23,17 @@ npx playwright install chromium
 
 ## Recommended Starting Prompts
 
-- `Evaluate this job URL with Career-Ops and run the full pipeline.`
+- `Evaluate this job URL with Faber and run the full pipeline.`
 - `Scan my configured portals for new roles that match my profile.`
-- `Generate the tailored ATS PDF for this role using Career-Ops.`
+- `Generate the tailored ATS PDF for this role using Faber.`
 
 ## Routing Map
 
 | User intent | Files Codex should read |
 |-------------|-------------------------|
 | Raw JD text or job URL | `modes/_shared.md` + `modes/auto-pipeline.md` |
-| Single evaluation only | `modes/_shared.md` + `modes/oferta.md` |
-| Multiple offers | `modes/_shared.md` + `modes/ofertas.md` |
+| Single evaluation only | `modes/_shared.md` + `modes/offer.md` |
+| Multiple offers | `modes/_shared.md` + `modes/offers.md` |
 | Portal scan | `modes/_shared.md` + `modes/scan.md` |
 | PDF generation | `modes/_shared.md` + `modes/pdf.md` |
 | Live application help | `modes/_shared.md` + `modes/apply.md` |
@@ -44,7 +44,7 @@ npx playwright install chromium
 | Project evaluation | `modes/project.md` |
 
 The key point: Codex support is additive. It should route into the existing
-Career-Ops modes and scripts rather than introducing a parallel automation
+Faber modes and scripts rather than introducing a parallel automation
 layer.
 
 ## Behavioral Rules

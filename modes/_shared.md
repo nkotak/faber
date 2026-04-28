@@ -1,11 +1,11 @@
-# System Context -- career-ops
+# System Context -- faber
 
 <!-- ============================================================
      THIS FILE IS AUTO-UPDATABLE. Don't put personal data here.
      
      Your customizations go in modes/_profile.md (never auto-updated).
      This file contains system rules, scoring logic, and tool config
-     that improve with each career-ops release.
+     that improve with each faber release.
      ============================================================ -->
 
 ## Sources of Truth
@@ -82,7 +82,7 @@ After detecting archetype, read `modes/_profile.md` for the user's specific fram
 6. Generate content in the language of the JD (EN default)
 7. Be direct and actionable -- no fluff
 8. Native tech English for generated text. Short sentences, action verbs, no passive voice.
-8b. Case study URLs in PDF Professional Summary (recruiter may only read this).
+8b. Case study URLs in the PDF Header contact row (recruiters scan top-down; the header is read first). The Professional Summary section was removed 2026-04 — never render one.
 9. **Tracker additions as TSV** -- NEVER edit applications.md directly. Write TSV in `batch/tracker-additions/`.
 10. **Include `**URL:**` in every report header.**
 
@@ -90,9 +90,11 @@ After detecting archetype, read `modes/_profile.md` for the user's specific fram
 
 | Tool | Use |
 |------|-----|
-| WebSearch | Comp research, trends, company culture, LinkedIn contacts, fallback for JDs |
-| WebFetch | Fallback for extracting JDs from static pages |
-| Playwright | Verify offers (browser_navigate + browser_snapshot). **NEVER 2+ agents with Playwright in parallel.** |
+| `node fetch-jd.mjs {URL}` | **Preferred JD extraction** — Greenhouse/Ashby/Lever via JSON API (~200ms, parallel-safe). Exits non-zero if not API-supported. |
+| agent-browser CLI | JD extraction fallback for non-API URLs (Workday, custom careers). Parallel-safe — independent Chrome instances. |
+| Playwright MCP | Offer verification + interactive single-agent JD extraction. **NEVER 2+ agents with Playwright MCP in parallel — shared browser instance.** |
+| WebFetch | JD extraction fallback for static HTML pages. |
+| WebSearch | Comp research, trends, company culture, LinkedIn contacts, last-resort JD discovery via secondary portals. |
 | Read | cv.md, _profile.md, article-digest.md, cv-template.html |
 | Write | Temporary HTML for PDF, applications.md, reports .md |
 | Edit | Update tracker |

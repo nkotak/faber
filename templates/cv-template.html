@@ -82,6 +82,7 @@
     letter-spacing: -0.02em;
     margin-bottom: 6px;
     line-height: 1.1;
+    text-transform: none; /* Render NAME verbatim from profile.yml — never uppercase */
   }
 
   .header-gradient {
@@ -128,34 +129,9 @@
     line-height: 1.2;
   }
 
-  /* === PROFESSIONAL SUMMARY === */
-  .summary-text {
-    font-size: 11px;
-    line-height: 1.7;
-    color: #2f2f2f;
-  }
-
   /* Links must never break across lines */
   a {
     white-space: nowrap;
-  }
-
-  /* === CORE COMPETENCIES === */
-  .competencies-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .competency-tag {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 10px;
-    font-weight: 500;
-    color: hsl(187, 74%, 28%);
-    background: hsl(187, 40%, 95%);
-    padding: 4px 10px;
-    border-radius: 3px;
-    border: 1px solid hsl(187, 40%, 88%);
   }
 
   /* === WORK EXPERIENCE === */
@@ -359,6 +335,8 @@
     <div class="contact-row">
       <span>{{EMAIL}}</span>
       <span class="separator">|</span>
+      <span>{{PHONE}}</span>
+      <span class="separator">|</span>
       <a href="{{LINKEDIN_URL}}">{{LINKEDIN_DISPLAY}}</a>
       <span class="separator">|</span>
       <a href="{{PORTFOLIO_URL}}">{{PORTFOLIO_DISPLAY}}</a>
@@ -367,47 +345,33 @@
     </div>
   </div>
 
-  <!-- PROFESSIONAL SUMMARY -->
-  <div class="section avoid-break">
-    <div class="section-title">{{SECTION_SUMMARY}}</div>
-    <div class="summary-text">{{SUMMARY_TEXT}}</div>
-  </div>
-
-  <!-- CORE COMPETENCIES -->
-  <div class="section">
-    <div class="section-title">{{SECTION_COMPETENCIES}}</div>
-    <div class="competencies-grid">
-      {{COMPETENCIES}}
-    </div>
-  </div>
-
   <!-- WORK EXPERIENCE -->
   <div class="section">
-    <div class="section-title">{{SECTION_EXPERIENCE}}</div>
+    <h2 class="section-title">{{SECTION_EXPERIENCE}}</h2>
     {{EXPERIENCE}}
   </div>
 
   <!-- PROJECTS -->
   <div class="section avoid-break">
-    <div class="section-title">{{SECTION_PROJECTS}}</div>
+    <h2 class="section-title">{{SECTION_PROJECTS}}</h2>
     {{PROJECTS}}
   </div>
 
   <!-- EDUCATION -->
   <div class="section avoid-break">
-    <div class="section-title">{{SECTION_EDUCATION}}</div>
+    <h2 class="section-title">{{SECTION_EDUCATION}}</h2>
     {{EDUCATION}}
   </div>
 
   <!-- CERTIFICATIONS -->
   <div class="section avoid-break">
-    <div class="section-title">{{SECTION_CERTIFICATIONS}}</div>
+    <h2 class="section-title">{{SECTION_CERTIFICATIONS}}</h2>
     {{CERTIFICATIONS}}
   </div>
 
   <!-- SKILLS -->
   <div class="section avoid-break">
-    <div class="section-title">{{SECTION_SKILLS}}</div>
+    <h2 class="section-title">{{SECTION_SKILLS}}</h2>
     {{SKILLS}}
   </div>
 

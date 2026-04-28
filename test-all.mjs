@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * test-all.mjs — Comprehensive test suite for career-ops
+ * test-all.mjs — Comprehensive test suite for faber
  *
  * Run before merging any PR or pushing changes.
  * Tests: syntax, scripts, dashboard, data contract, personal data, paths.
@@ -39,7 +39,7 @@ function run(cmd, opts = {}) {
 function fileExists(path) { return existsSync(join(ROOT, path)); }
 function readFile(path) { return readFileSync(join(ROOT, path), 'utf-8'); }
 
-console.log('\n🧪 career-ops test suite\n');
+console.log('\n🧪 faber test suite\n');
 
 // ── 1. SYNTAX CHECKS ────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ for (const { name, allowFail } of scripts) {
 
 if (!QUICK) {
   console.log('\n3. Dashboard build');
-  const goBuild = run('cd dashboard && go build -o /tmp/career-dashboard-test . 2>&1');
+  const goBuild = run('cd dashboard && go build -o /tmp/faber-dashboard-test . 2>&1');
   if (goBuild !== null) {
     pass('Dashboard compiles');
   } else {
@@ -101,9 +101,9 @@ console.log('\n4. Data contract validation');
 const systemFiles = [
   'CLAUDE.md', 'VERSION', 'DATA_CONTRACT.md',
   'modes/_shared.md', 'modes/_profile.template.md',
-  'modes/oferta.md', 'modes/pdf.md', 'modes/scan.md',
+  'modes/offer.md', 'modes/pdf.md', 'modes/scan.md',
   'templates/states.yml', 'templates/cv-template.html',
-  '.claude/skills/career-ops/SKILL.md',
+  '.claude/skills/faber/SKILL.md',
 ];
 
 for (const f of systemFiles) {
@@ -133,9 +133,12 @@ for (const f of userFiles) {
 
 console.log('\n5. Personal data leak check');
 
+// Add YOUR personal data patterns here to detect accidental leaks into shared
+// files (modes, examples, templates). Examples: your full name, email, phone,
+// employer names, or absolute paths under your home dir. The check is best-effort
+// — patterns matched anywhere except `allowedFiles` below trigger a warning.
 const leakPatterns = [
-  'Santiago', 'santifer.io', 'Santifer iRepair', 'Zinkee', 'ALMAS',
-  'hi@santifer.io', '688921377', '/Users/santifer/',
+  // 'Your Name', 'you@example.com', '/Users/yourname/',
 ];
 
 const scanExtensions = ['md', 'yml', 'html', 'mjs', 'sh', 'go', 'json'];
@@ -182,9 +185,9 @@ if (!absPathResult) {
 console.log('\n7. Mode file integrity');
 
 const expectedModes = [
-  '_shared.md', '_profile.template.md', 'oferta.md', 'pdf.md', 'scan.md',
-  'batch.md', 'apply.md', 'auto-pipeline.md', 'contacto.md', 'deep.md',
-  'ofertas.md', 'pipeline.md', 'project.md', 'tracker.md', 'training.md',
+  '_shared.md', '_profile.template.md', 'offer.md', 'pdf.md', 'scan.md',
+  'batch.md', 'apply.md', 'auto-pipeline.md', 'contact.md', 'deep.md',
+  'offers.md', 'pipeline.md', 'project.md', 'tracker.md', 'training.md',
 ];
 
 for (const mode of expectedModes) {

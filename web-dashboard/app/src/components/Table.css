@@ -1,0 +1,449 @@
+.table {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.table__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns:
+    80px                           /* score coin */
+    minmax(0, 1fr)                 /* row main body - THE one that flexes */
+    minmax(102px, max-content)     /* status pill, sized to content */
+    minmax(104px, max-content)     /* pdf + prep */
+    52px;                          /* date, right-aligned */
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  background: color-mix(in oklch, var(--paper) 85%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.table__h-col--row { text-align: left; }
+.table__h-col--status { padding-right: var(--s-2); }
+.table__h-col--pdf { text-align: left; }
+.table__h-col--date { text-align: right; }
+.table__h-meta {
+  color: var(--ink-whisper);
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  padding-left: var(--s-2);
+}
+
+.table__viewport {
+  position: relative;
+  width: 100%;
+}
+
+/* -------- group header (grouped view) -------- */
+.table__group {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-5);
+  background: linear-gradient(
+    to right,
+    var(--paper-raised) 0,
+    var(--paper-raised) 80%,
+    transparent 100%
+  );
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.table__group-dot {
+  color: var(--phosphor);
+  font-size: 8px;
+  line-height: 1;
+}
+.table__group-label {
+  color: var(--ink-soft);
+}
+.table__group-count {
+  color: var(--ink-whisper);
+  font-size: var(--t-xs);
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+}
+.table__group-rule {
+  height: 1px;
+  background: var(--rule);
+  align-self: center;
+}
+
+/* -------- row ------------------------------------- */
+/*
+ * Row height is driven by content (measured by the virtualizer's
+ * measureElement). We keep the grid identical to the header so every
+ * column lines up vertically no matter how tall any single row is.
+ */
+.table__row {
+  display: grid;
+  grid-template-columns:
+    80px
+    minmax(0, 1fr)
+    minmax(102px, max-content)
+    minmax(104px, max-content)
+    52px;
+  align-items: start;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease-out-quart);
+  color: var(--ink);
+  min-height: 68px;
+}
+.table__row:hover {
+  background: var(--paper-raised);
+}
+.table__row--selected {
+  background: color-mix(in oklch, var(--paper-raised) 70%, var(--phosphor-dim) 30%);
+}
+.table__row-rule {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--phosphor);
+  border-radius: 1px;
+  /* no glow - that was the terminal tell */
+}
+
+/* align the score coin with the first baseline of the company title */
+.coin {
+  margin-top: 2px;
+}
+
+.table__row-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: start;
+  min-width: 0;
+}
+.table__row-id {
+  color: var(--ink-whisper);
+  font-size: var(--t-xs);
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+  padding-top: 6px;
+}
+.table__row-body {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.table__row-company {
+  font-family: var(--font-display);
+  font-size: var(--t-md);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  /* single line - companies are short; truncate only if absurd */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table__row-role {
+  font-size: var(--t-sm);
+  color: var(--ink-muted);
+  line-height: 1.4;
+  /* allow wrap; 2-line max so roles like "PM, Platform & Developer Product" sit fine */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+          line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.table__row-tldr {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-whisper);
+  line-height: 1.45;
+  padding-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+          line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.table__row-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding-top: 2px;
+}
+.table__row-prep,
+.table__row-prep-btn {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+  background: transparent;
+  flex-shrink: 0;
+}
+.table__row-prep {
+  color: var(--phosphor);
+  border-color: var(--phosphor-dim);
+}
+.table__row-prep-btn:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.table__row-date {
+  color: var(--ink-whisper);
+  font-size: var(--t-xs);
+  text-align: right;
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+  padding-top: 8px;
+  white-space: nowrap;
+}
+
+/* -------- score coin ------------------------------ */
+.coin {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1px;
+  min-width: 68px;
+  padding: 6px 10px;
+  border-radius: var(--r-1);
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+}
+.coin__value {
+  font-size: var(--t-md);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1;
+}
+.coin__of {
+  font-size: var(--t-xs);
+  color: var(--ink-whisper);
+}
+.coin--high {
+  border-color: var(--phosphor-dim);
+  background: color-mix(in oklch, var(--paper) 85%, var(--phosphor) 15%);
+}
+.coin--high .coin__value { color: var(--phosphor); }
+.coin--strong {
+  border-color: var(--phosphor-dim);
+  background: color-mix(in oklch, var(--paper) 92%, var(--phosphor) 8%);
+}
+.coin--strong .coin__value { color: var(--ink); }
+.coin--ok { color: var(--ink-soft); }
+.coin--low .coin__value { color: var(--ink-whisper); }
+.coin--none {
+  background: var(--paper);
+  color: var(--ink-whisper);
+}
+
+/* -------- status pill ----------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  /* pill sits on first line of row content regardless of how tall the body gets */
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.pill__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.pill--evaluated  { color: var(--azure); background: var(--azure-soft); border-color: transparent; }
+.pill--applied    { color: var(--phosphor); background: color-mix(in oklch, var(--paper) 88%, var(--phosphor) 12%); border-color: transparent; }
+.pill--responded  { color: var(--azure); background: var(--azure-soft); border-color: transparent; }
+.pill--interview  { color: var(--verdant); background: var(--verdant-soft); border-color: transparent; }
+.pill--offer      { color: var(--verdant); background: var(--verdant-soft); border-color: var(--verdant); font-weight: 500; }
+.pill--rejected   { color: var(--ember); background: var(--ember-soft); border-color: transparent; }
+.pill--discarded  { color: var(--ink-muted); background: var(--paper-raised); border-color: var(--rule); }
+.pill--skip       { color: var(--ink-whisper); background: transparent; border: 1px dashed var(--rule); }
+
+/* -------- pdf glyph ------------------------------- */
+.pdfglyph {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--r-1);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  transition: background var(--d-fast) var(--ease-out-quart),
+    color var(--d-fast) var(--ease-out-quart),
+    border-color var(--d-fast) var(--ease-out-quart);
+}
+.pdfglyph:hover { color: var(--ink); border-color: var(--rule-strong); }
+.pdfglyph--ok {
+  color: var(--verdant);
+  border-color: var(--verdant);
+  background: var(--verdant-soft);
+}
+.pdfglyph--missing {
+  color: var(--phosphor);
+  border-color: var(--phosphor-dim);
+  background: color-mix(in oklch, var(--paper) 90%, var(--phosphor) 10%);
+}
+.pdfglyph--none {
+  color: var(--ink-whisper);
+}
+
+/* -------- narrow sidebar layout -------- */
+@container (max-width: 780px) {
+  .table__header,
+  .table__row {
+    grid-template-columns:
+      64px
+      minmax(0, 1fr)
+      minmax(88px, max-content)
+      minmax(88px, max-content);
+    gap: var(--s-2);
+  }
+  .table__h-col--date,
+  .table__row-date {
+    display: none;
+  }
+  .coin {
+    min-width: 56px;
+    padding: 5px 8px;
+  }
+}
+@container (max-width: 560px) {
+  .table__header,
+  .table__row {
+    grid-template-columns:
+      56px
+      minmax(0, 1fr)
+      minmax(80px, max-content);
+  }
+  .table__row-pdf,
+  .table__h-col--pdf {
+    display: none;
+  }
+}
+
+/* -------- focus mode rail --------
+ * Everything collapses to [coin] [id over status-dot]. The rest is still
+ * in the DOM for the virtualizer's benefit but visually hidden.
+ */
+:root[data-focus='true'] .table__header {
+  display: none;
+}
+:root[data-focus='true'] .table__row {
+  /* Narrower coin column (48px vs 56px) at the 208px focus rail leaves
+   * more room for the company name in the second column — enough that
+   * "Anthropic" and "OpenAI" don't get truncated mid-word. */
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2);
+  min-height: 52px;
+  align-items: center;
+}
+:root[data-focus='true'] .table__row-main {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+:root[data-focus='true'] .table__row-id {
+  display: none;
+}
+:root[data-focus='true'] .table__row-body {
+  gap: 0;
+}
+:root[data-focus='true'] .table__row-company {
+  font-size: var(--t-xs);
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+:root[data-focus='true'] .table__row-role,
+:root[data-focus='true'] .table__row-tldr,
+:root[data-focus='true'] .table__row-pdf,
+:root[data-focus='true'] .table__row-date,
+:root[data-focus='true'] .pill__label {
+  display: none;
+}
+/* Leave just the status dot as a color cue */
+:root[data-focus='true'] .pill {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+:root[data-focus='true'] .pill__dot {
+  width: 6px;
+  height: 6px;
+}
+:root[data-focus='true'] .coin {
+  min-width: 46px;
+  padding: 4px 6px;
+}
+:root[data-focus='true'] .coin__value {
+  font-size: var(--t-sm);
+}
+:root[data-focus='true'] .coin__of {
+  display: none;
+}
+:root[data-focus='true'] .table__row {
+  position: relative; /* keep here too so pill absolute positions */
+}
+:root[data-focus='true'] .table__group {
+  padding: var(--s-1) var(--s-2);
+  grid-template-columns: auto 1fr;
+}
+:root[data-focus='true'] .table__group-count,
+:root[data-focus='true'] .table__group-rule {
+  display: none;
+}
+:root[data-focus='true'] .table__group-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}

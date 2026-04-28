@@ -1,0 +1,59 @@
+/* StepPortals.css -- defaults toggle + collapsed company list. */
+
+.onb-step-portals__toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+.onb-step-portals__choice {
+  display: grid;
+  gap: 4px;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  cursor: pointer;
+  transition: border-color var(--d-fast) var(--ease-out-quart),
+    background var(--d-fast) var(--ease-out-quart);
+}
+.onb-step-portals__choice:hover {
+  border-color: var(--rule-strong);
+}
+.onb-step-portals__choice--active {
+  border-color: var(--ink);
+  background: var(--paper-raised);
+}
+.onb-step-portals__choice-title {
+  font-family: var(--font-display);
+  font-size: var(--t-md);
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.onb-step-portals__choice-hint {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}
+.onb-step-portals__choice-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.onb-step-portals__choice-radio-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-strong);
+  display: inline-block;
+}
+.onb-step-portals__choice--active .onb-step-portals__choice-radio-dot {
+  background: var(--phosphor);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--phosphor) 20%, transparent);
+}
+
+.onb-step-portals__customize {
+  display: grid;
+  gap: var(--s-5);
+}

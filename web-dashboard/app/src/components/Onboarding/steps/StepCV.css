@@ -1,0 +1,166 @@
+/* StepCV.css -- step 1 layout, inline progress chip, preview toggle.
+ *
+ * The progress chip mirrors JobTray.css:32-72 / 102-113 so it reads as
+ * the same affordance — but we render it INSIDE the modal body, not in
+ * the global tray. The global tray is for jobs that hand off to the
+ * background; the parse job here is foreground and the user's eyes are
+ * on the modal.
+ */
+
+.onb-uploader {
+  display: grid;
+  gap: var(--s-3);
+}
+.onb-uploader__paste-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--s-2);
+  gap: var(--s-3);
+}
+
+/* inline progress chip — JobTray clone, scoped to the step body */
+.onb-cv-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px var(--s-3);
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink);
+  white-space: nowrap;
+  margin-bottom: var(--s-3);
+}
+.onb-cv-progress__kind {
+  letter-spacing: 0.16em;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.onb-cv-progress__sep {
+  color: var(--ink-whisper);
+}
+.onb-cv-progress__progress {
+  color: var(--ink-muted);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+.onb-cv-progress__time {
+  color: var(--ink-whisper);
+  font-feature-settings: 'tnum' 1;
+}
+.onb-cv-progress__spin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--phosphor-dim);
+  border-top-color: var(--phosphor);
+  animation: onb-cv-spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes onb-cv-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-cv-progress__spin { animation: none; }
+}
+
+/* preview block */
+.onb-preview {
+  display: grid;
+  gap: var(--s-3);
+}
+.onb-preview__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: var(--s-2);
+}
+.onb-preview__tab {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--ink-muted);
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-1);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out-quart),
+    border-color var(--d-fast) var(--ease-out-quart);
+}
+.onb-preview__tab:hover {
+  color: var(--ink);
+}
+.onb-preview__tab--active {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.onb-preview__bar-hint {
+  margin-left: auto;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-whisper);
+}
+.onb-preview__body {
+  display: grid;
+  gap: var(--s-3);
+}
+.onb-preview__body--split {
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+.onb-preview__rendered {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: var(--s-3) var(--s-4);
+  background: var(--vellum);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  /* prose is already capped at --measure-prose; let the wrapper size to fit */
+  max-width: 100%;
+}
+.onb-preview__rendered.prose {
+  max-width: 100%;
+}
+.onb-preview__rendered.prose h1 {
+  font-size: var(--t-xl);
+}
+.onb-preview__raw {
+  min-height: 360px;
+}
+
+/* preview footer button row */
+.onb-preview__actions {
+  display: flex;
+  gap: var(--s-2);
+}
+
+/* error state body */
+.onb-cv-error {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  background: var(--paper-raised);
+}
+.onb-cv-error__msg {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  color: var(--ember);
+  letter-spacing: 0.04em;
+}
+.onb-cv-error__hint {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}

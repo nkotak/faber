@@ -1,0 +1,70 @@
+/* shell.css - main two-column layout.
+ * Imported via globals (side-effect).
+ *
+ * Two modes:
+ *   split  (default)       two-column, good for glance-at-list + read side-by-side
+ *   focus  (data-focus=true) rail + full reader, good for deep reading on a laptop
+ */
+.shell {
+  display: grid;
+  /* Reader-dominant split. The reader is the protagonist: reports are
+   * dense, tables are wide, and long review sessions live on the right.
+   * 3fr:1fr ratio gives the reader ~75% of laptop-width viewports so
+   * wide eval tables can render fully without horizontal scrolling and
+   * the prose column can expand via container queries in DetailPane.css.
+   * Sidebar floors at 320px — the Table's @container rules at 560/780
+   * progressively drop date/pdf columns so it stays usable down to ~320. */
+  grid-template-columns: minmax(320px, 1fr) minmax(780px, 3fr);
+  min-height: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  transition: grid-template-columns var(--d-med) var(--ease-out-quint);
+}
+
+/* Focus mode: sidebar collapses to a usable rail — wide enough for the
+ * score coin + company name at a glance. 112px was too squished to
+ * actually read anything; 208px lets "Anthropic"/"OpenAI"/"Cohere" sit
+ * on one line next to the coin, and the filter tabs render cleanly with
+ * label + count. */
+:root[data-focus='true'] .shell {
+  grid-template-columns: 208px minmax(0, 1fr);
+}
+
+.shell__sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--paper);
+  /* expose the sidebar's own width to its descendants so Table.css's
+   * @container queries (max-width: 780 / 560) measure the sidebar,
+   * not the whole shell. Without this, the table columns never dropped
+   * to the narrow layout even when the sidebar was 440-500px. */
+  container-type: inline-size;
+}
+
+.shell__list {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__reader {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--vellum);
+  position: relative;
+}
+
+/* Mobile: stack */
+@container (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .shell__sidebar { border-right: none; border-bottom: 1px solid var(--rule); }
+  .shell__reader  { display: none; } /* TODO: slide-up sheet on mobile */
+}

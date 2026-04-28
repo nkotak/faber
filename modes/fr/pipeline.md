@@ -1,13 +1,13 @@
 # Mode : pipeline -- Inbox d'URLs (Second Brain)
 
-Traite les URLs d'offres accumulees dans `data/pipeline.md`. Le candidat ajoute des URLs quand il veut et lance ensuite `/career-ops pipeline` pour toutes les traiter d'un coup.
+Traite les URLs d'offres accumulees dans `data/pipeline.md`. Le candidat ajoute des URLs quand il veut et lance ensuite `/faber pipeline` pour toutes les traiter d'un coup.
 
 ## Workflow
 
 1. **Lire** `data/pipeline.md` -> trouver les items `- [ ]` dans la section "En attente" / "Pending" / "Pendientes"
 2. **Pour chaque URL en attente** :
    a. Calculer le prochain `REPORT_NUM` sequentiel (lire `reports/`, prendre le numero le plus eleve + 1)
-   b. **Extraire l'offre** avec Playwright (`browser_navigate` + `browser_snapshot`) -> WebFetch -> WebSearch
+   b. **Extraire l'offre** selon la chaine de priorite (voir ci-dessous) : `fetch-jd.mjs` (API ATS) -> agent-browser -> Playwright MCP -> WebFetch -> WebSearch
    c. Si l'URL n'est pas accessible -> marquer comme `- [!]` avec une note et continuer
    d. **Executer l'auto-pipeline complet** : Evaluation A-F -> Report .md -> PDF (si score >= 3.0) -> Tracker
    e. **Deplacer de "En attente" vers "Traitees"** : `- [x] #NNN | URL | Entreprise | Role | Score/5 | PDF oui/non`
@@ -35,9 +35,11 @@ Traite les URLs d'offres accumulees dans `data/pipeline.md`. Le candidat ajoute 
 
 ## Detection intelligente de l'offre depuis l'URL
 
-1. **Playwright (prefere) :** `browser_navigate` + `browser_snapshot`. Fonctionne avec toutes les SPAs.
-2. **WebFetch (fallback) :** Pour les pages statiques ou quand Playwright n'est pas disponible.
-3. **WebSearch (dernier recours) :** Chercher sur des portails secondaires qui indexent l'offre.
+1. **API JSON ATS (prefere) :** `node fetch-jd.mjs "{URL}"`. Greenhouse/Ashby/Lever via leurs endpoints JSON publics. ~200ms par URL, parallele-safe, sans navigateur. Exit 0 en cas de succes ; exit != 0 si non-API-supporte -- passer a la methode suivante.
+2. **agent-browser (fallback #1) :** CLI Chrome headless natif Rust. Parallele-safe (instance independante par appel). Fonctionne dans le contexte `claude -p`.
+3. **Playwright MCP (fallback #2) :** `browser_navigate` + `browser_snapshot`. Uniquement en session interactive single-agent. JAMAIS 2+ agents en parallele (`_shared.md:95`).
+4. **WebFetch (fallback #3) :** Pour les pages HTML statiques sans JS.
+5. **WebSearch (dernier recours) :** Chercher sur des portails secondaires qui indexent l'offre.
 
 **Cas particuliers :**
 - **LinkedIn** : Peut necessiter un login -> marquer `[!]` et demander au candidat de coller le texte

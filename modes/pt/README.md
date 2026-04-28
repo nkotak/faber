@@ -1,6 +1,6 @@
-# career-ops -- Modos em Portugues BR (`modes/pt/`)
+# faber -- Modos em Portugues BR (`modes/pt/`)
 
-Esta pasta contem as traducoes em portugues brasileiro dos principais modos do career-ops para candidatos que buscam vagas no mercado brasileiro ou em empresas que operam em portugues.
+Esta pasta contem as traducoes em portugues brasileiro dos principais modos do faber para candidatos que buscam vagas no mercado brasileiro ou em empresas que operam em portugues.
 
 ## Quando usar estes modos?
 
@@ -15,7 +15,7 @@ Se a maioria das suas vagas e em ingles, fique com os modos padrao em `modes/`. 
 
 ## Como ativar?
 
-O career-ops nao tem um "switch de idioma" como flag de codigo. Em vez disso, existem dois caminhos:
+O faber nao tem um "switch de idioma" como flag de codigo. Em vez disso, existem dois caminhos:
 
 ### Caminho 1 -- Por sessao, via comando
 
@@ -50,11 +50,11 @@ Esta primeira iteracao cobre os quatro modos com maior impacto:
 | Arquivo | Traduzido de | Finalidade |
 |---------|-------------|------------|
 | `_shared.md` | `modes/_shared.md` (EN) | Contexto compartilhado, arquetipos, regras globais, especificidades do mercado BR |
-| `oferta.md` | `modes/oferta.md` (ES) | Avaliacao completa de uma vaga (Blocos A-F) |
+| `oferta.md` | `modes/offer.md` (EN) | Avaliacao completa de uma vaga (Blocos A-F) |
 | `aplicar.md` | `modes/apply.md` (EN) | Assistente ao vivo para formularios de candidatura |
-| `pipeline.md` | `modes/pipeline.md` (ES) | Inbox de URLs / Second Brain para vagas acumuladas |
+| `pipeline.md` | `modes/pipeline.md` (EN) | Inbox de URLs / Second Brain para vagas acumuladas |
 
-Os demais modos (`scan`, `batch`, `pdf`, `tracker`, `auto-pipeline`, `deep`, `contacto`, `ofertas`, `project`, `training`) nao estao neste PR de proposito. Eles continuam funcionando via os originais em EN/ES, pois seu conteudo e majoritariamente tooling, caminhos e comandos de configuracao — que devem ser independentes de idioma.
+Os demais modos (`scan`, `batch`, `pdf`, `tracker`, `auto-pipeline`, `deep`, `contact`, `offers`, `project`, `training`) nao estao neste PR de proposito. Eles continuam funcionando via os originais em EN/ES, pois seu conteudo e majoritariamente tooling, caminhos e comandos de configuracao — que devem ser independentes de idioma.
 
 Se a comunidade adotar os modos em portugues, mais modos serao traduzidos em PRs futuros.
 

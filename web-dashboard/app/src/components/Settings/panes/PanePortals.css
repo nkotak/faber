@@ -1,0 +1,11 @@
+/* PanePortals.css -- portals.yml editor.
+ *
+ * Layout reuses OnboardingForms.css (chip inputs, company toggle list).
+ * The "view current" collapsible uses the shared .settings-collapse
+ * primitive from SettingsView.css.
+ */
+
+.pane-portals {
+  display: grid;
+  gap: var(--s-5);
+}

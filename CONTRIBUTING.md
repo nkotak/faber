@@ -1,6 +1,6 @@
-# Contributing to Career-Ops
+# Contributing to Faber
 
-Thanks for your interest in contributing! Career-Ops is built with Claude Code, and you can use it for development too.
+Thanks for your interest in contributing! Faber is built with Claude Code, and you can use it for development too.
 
 ## Before Submitting a PR
 
@@ -31,7 +31,7 @@ PRs without a corresponding issue may be closed if they don't align with the pro
 - Translate modes to other languages
 - Improve documentation
 - Add example CVs for different roles (in `examples/`)
-- Report bugs via [Issues](https://github.com/santifer/career-ops/issues)
+- Report bugs via Issues
 
 **Bigger contributions:**
 - New evaluation dimensions or scoring logic
@@ -49,7 +49,7 @@ PRs without a corresponding issue may be closed if they don't align with the pro
 ## What we do NOT accept
 
 - **PRs that scrape platforms prohibiting automated access** (LinkedIn, etc.). We actively reject these to respect third-party ToS.
-- **PRs that enable auto-submitting applications** without human review. career-ops is a decision-support tool, not a spam bot.
+- **PRs that enable auto-submitting applications** without human review. faber is a decision-support tool, not a spam bot.
 - **PRs that add external API dependencies** without prior discussion in an issue.
 - **PRs containing personal data** (real CVs, emails, phone numbers). Use `examples/` with fictional data instead.
 
@@ -62,12 +62,11 @@ node verify-pipeline.mjs     # Health check
 node cv-sync-check.mjs        # Config check
 
 # Dashboard
-cd dashboard && go build -o career-dashboard .
-./career-dashboard --path ..
+cd dashboard && go build -o faber-dashboard .
+./faber-dashboard --path ..
 ```
 
 ## Need Help?
 
-- [Open an issue](https://github.com/santifer/career-ops/issues)
+- Open an issue
 - [Read the architecture docs](docs/ARCHITECTURE.md)
-- Built by [santifer](https://santifer.io)

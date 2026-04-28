@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" aria-label="Faber">
+  <rect width="32" height="32" fill="#f9f8f5"/>
+  <text x="16" y="22" text-anchor="middle" font-family="Bodoni 72, serif" font-size="22" font-weight="400" fill="#1a2833" letter-spacing="-0.5">F</text>
+  <line x1="6" y1="27" x2="26" y2="27" stroke="#3d7086" stroke-width="0.75" opacity="0.8"/>
+</svg>

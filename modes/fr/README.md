@@ -1,6 +1,6 @@
-# career-ops -- Modes francophones (`modes/fr/`)
+# faber -- Modes francophones (`modes/fr/`)
 
-Ce dossier contient les traductions francaises des principaux modes career-ops pour les candidats qui ciblent le marche francophone (France, Belgique, Suisse romande, Luxembourg, Quebec).
+Ce dossier contient les traductions francaises des principaux modes faber pour les candidats qui ciblent le marche francophone (France, Belgique, Suisse romande, Luxembourg, Quebec).
 
 ## Quand utiliser ces modes ?
 
@@ -42,11 +42,11 @@ Cette premiere iteration couvre les quatre modes a plus fort impact :
 | Fichier | Traduit depuis | Role |
 |---------|----------------|------|
 | `_shared.md` | `modes/_shared.md` (EN) | Contexte partage, archetypes, regles globales, specificites marche francophone |
-| `offre.md` | `modes/oferta.md` (ES) | Evaluation complete d'une offre (Blocs A-F) |
+| `offre.md` | `modes/offer.md` (EN) | Evaluation complete d'une offre (Blocs A-F) |
 | `postuler.md` | `modes/apply.md` (EN) | Assistant live pour remplir les formulaires de candidature |
-| `pipeline.md` | `modes/pipeline.md` (ES) | Inbox d'URLs / Second Brain pour les offres collectees |
+| `pipeline.md` | `modes/pipeline.md` (EN) | Inbox d'URLs / Second Brain pour les offres collectees |
 
-Les autres modes (`scan`, `batch`, `pdf`, `tracker`, `auto-pipeline`, `deep`, `contacto`, `ofertas`, `project`, `training`) restent en EN/ES. Leur contenu est surtout du tooling, des chemins et des commandes -- il doit rester independant de la langue.
+Les autres modes (`scan`, `batch`, `pdf`, `tracker`, `auto-pipeline`, `deep`, `contact`, `offers`, `project`, `training`) restent en EN. Leur contenu est surtout du tooling, des chemins et des commandes -- il doit rester independant de la langue.
 
 ## Ce qui reste en anglais
 

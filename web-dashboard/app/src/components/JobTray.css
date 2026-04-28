@@ -1,0 +1,116 @@
+.tray {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0 var(--s-5);
+  height: var(--tray-h);
+  border-top: 1px solid var(--rule);
+  background: var(--paper-raised);
+  position: relative;
+  overflow: hidden;
+}
+.tray__label {
+  color: var(--ink-whisper);
+}
+.tray__list {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1 1 auto;
+}
+.tray__list::-webkit-scrollbar { display: none; }
+.tray__empty {
+  color: var(--ink-whisper);
+  font-size: var(--t-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px var(--s-3);
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  font-size: var(--t-xs);
+  color: var(--ink);
+  white-space: nowrap;
+  animation: chipIn var(--d-med) var(--ease-out-quint);
+  transform-origin: 0 50%;
+}
+@keyframes chipIn {
+  from { transform: translateX(-12px) scale(0.96); opacity: 0; }
+  to   { transform: translateX(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip { animation: none; }
+}
+
+.chip__kind {
+  letter-spacing: 0.16em;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.chip__sep { color: var(--ink-whisper); }
+.chip__label {
+  color: var(--ink);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip__progress {
+  color: var(--ink-muted);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+.chip__time {
+  color: var(--ink-whisper);
+  font-feature-settings: 'tnum' 1;
+}
+.chip__error {
+  color: var(--ember);
+}
+.chip__cancel {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.chip__cancel:hover { color: var(--ember); border-color: var(--ember); }
+
+.chip__glyph--running { color: var(--phosphor); }
+.chip__glyph--succeeded { color: var(--verdant); }
+.chip__glyph--failed { color: var(--ember); }
+.chip__glyph--cancelled { color: var(--ink-muted); }
+
+.chip--succeeded { border-color: var(--verdant); }
+.chip--failed { border-color: var(--ember); }
+.chip--cancelled { border-color: var(--rule); }
+
+.chip__spin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--phosphor-dim);
+  border-top-color: var(--phosphor);
+  animation: chipSpin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes chipSpin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip__spin { animation: none; }
+}

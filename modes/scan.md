@@ -1,140 +1,195 @@
-# Modo: scan — Portal Scanner (Descubrimiento de Ofertas)
+# Mode: scan — Portal Scanner (Offer Discovery)
 
-Escanea portales de empleo configurados, filtra por relevancia de título, y añade nuevas ofertas al pipeline para evaluación posterior.
+Scan configured job portals, filter by title relevance, and add new offers to the pipeline for later evaluation.
 
-## Ejecución recomendada
+## Recommended execution
 
-Ejecutar como subagente para no consumir contexto del main:
+Run as a subagent so it doesn't consume the main context:
 
 ```
 Agent(
     subagent_type="general-purpose",
-    prompt="[contenido de este archivo + datos específicos]",
+    prompt="[contents of this file + specific data]",
     run_in_background=True
 )
 ```
 
-## Configuración
+## Configuration
 
-Leer `portals.yml` que contiene:
-- `search_queries`: Lista de queries WebSearch con `site:` filters por portal (descubrimiento amplio)
-- `tracked_companies`: Empresas específicas con `careers_url` para navegación directa
-- `title_filter`: Keywords positive/negative/seniority_boost para filtrado de títulos
+Read `portals.yml`, which contains:
+- `tracked_companies`: companies with `platform`, `slug`, and `careers_url`
+- `search_queries`: WebSearch queries with `site:` filters (broad discovery)
+- `title_filter`: positive / negative / seniority_boost keywords for title filtering
 
-## Estrategia de descubrimiento (3 niveles)
+Each tracked company has a `platform` field:
+- `ashby` → fetched via API (scan-apis.mjs)
+- `lever` → fetched via API (scan-apis.mjs)
+- `greenhouse` → fetched via API (scan-apis.mjs)
+- `workable` → fetched via agent-browser CLI
+- `custom` → fetched via agent-browser CLI
 
-### Nivel 1 — Playwright directo (PRINCIPAL)
+## Discovery strategy (3 levels)
 
-**Para cada empresa en `tracked_companies`:** Navegar a su `careers_url` con Playwright (`browser_navigate` + `browser_snapshot`), leer TODOS los job listings visibles, y extraer título + URL de cada uno. Este es el método más fiable porque:
-- Ve la página en tiempo real (no resultados cacheados de Google)
-- Funciona con SPAs (Ashby, Lever, Workday)
-- Detecta ofertas nuevas al instante
-- No depende de la indexación de Google
+### Level 1 — ATS APIs (PRIMARY, ~30 companies)
 
-**Cada empresa DEBE tener `careers_url` en portals.yml.** Si no la tiene, buscarla una vez, guardarla, y usar en futuros scans.
+**Run `node scan-apis.mjs` via Bash.** This fetches all companies with `platform: ashby|lever|greenhouse` in parallel using their public JSON APIs:
 
-### Nivel 2 — Greenhouse API (COMPLEMENTARIO)
+- **Ashby:** `api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true`
+- **Lever:** `api.lever.co/v0/postings/{slug}`
+- **Greenhouse:** `boards-api.greenhouse.io/v1/boards/{slug}/jobs`
 
-Para empresas con Greenhouse, la API JSON (`boards-api.greenhouse.io/v1/boards/{slug}/jobs`) devuelve datos estructurados limpios. Usar como complemento rápido de Nivel 1 — es más rápido que Playwright pero solo funciona con Greenhouse.
+Returns a JSON array to stdout with every job listing: `{title, url, company, department, location, compensation, platform, slug}`.
 
-### Nivel 3 — WebSearch queries (DESCUBRIMIENTO AMPLIO)
+**No filtering is done by the script** (Option B design). The agent receives ALL jobs and applies `title_filter` from `portals.yml` using judgment — the agent can include a borderline title that keyword matching would miss.
 
-Los `search_queries` con `site:` filters cubren portales de forma transversal (todos los Ashby, todos los Greenhouse, etc.). Útil para descubrir empresas NUEVAS que aún no están en `tracked_companies`, pero los resultados pueden estar desfasados.
+**Advantages over browser scraping:**
+- Runs in ~5 seconds (vs. 20-40 minutes with Playwright)
+- 100% reliable — no browser session, no SPA rendering, no extension dependency
+- Structured JSON — no accessibility tree parsing needed
+- Includes compensation data (Ashby), department, team, location
+- Works in any agent context (foreground, background, batch `claude -p`)
 
-**Prioridad de ejecución:**
-1. Nivel 1: Playwright → todas las `tracked_companies` con `careers_url`
-2. Nivel 2: API → todas las `tracked_companies` con `api:`
-3. Nivel 3: WebSearch → todos los `search_queries` con `enabled: true`
+**Usage:**
+```bash
+node scan-apis.mjs              # Full JSON output to stdout, summary to stderr
+node scan-apis.mjs --summary    # Counts only (useful for quick check)
+node scan-apis.mjs --platform=ashby  # Only Ashby companies
+node scan-apis.mjs --company=anthropic  # Single company by slug
+```
 
-Los niveles son aditivos — se ejecutan todos, los resultados se mezclan y deduplicar.
+### Level 2 — agent-browser CLI (COMPLEMENTARY, ~22 companies)
+
+For companies with `platform: workable` or `platform: custom`, use the `agent-browser` CLI via Bash. These are companies with custom careers pages that don't expose a JSON API.
+
+**agent-browser** is a Rust-native headless Chrome CLI (no Playwright/MCP dependency):
+
+```bash
+# Navigate to a careers page
+agent-browser open "https://careers.google.com" --headless --wait="networkidle"
+
+# Get accessibility tree snapshot (optimized for AI)
+agent-browser snapshot
+
+# Close browser when done
+agent-browser close
+```
+
+**For each company with `platform: workable|custom` and `enabled: true`:**
+1. `agent-browser open "{careers_url}" --headless --wait="networkidle"` via Bash
+2. `agent-browser snapshot` via Bash → read job listings from the accessibility tree
+3. Extract `{title, url, company}` from the snapshot
+4. If the page has filters/departments, navigate relevant sections
+5. If the page paginates, navigate additional pages
+
+**Sequential only** — process one company at a time (one browser instance).
+
+**If `agent-browser` is not installed:** Run `npm install -g agent-browser && agent-browser install` first.
+
+**If a page fails to load (404, timeout, bot detection):** Log as `skipped_error` in scan-history.tsv and continue to the next company. Don't stop the scan.
+
+### Level 3 — WebSearch queries (BROAD DISCOVERY)
+
+The `search_queries` with `site:` filters cover portals cross-cutting (all of Ashby, all of Greenhouse, etc.). Useful to discover NEW companies that aren't in `tracked_companies` yet, but results can be stale.
+
+**Execution priority:**
+1. Level 1: `node scan-apis.mjs` → all API-eligible companies (5 seconds)
+2. Level 2: agent-browser → every `platform: workable|custom` company with `enabled: true`
+3. Level 3: WebSearch → every `search_queries` entry with `enabled: true`
+
+The levels are additive — all run, results are merged and deduplicated.
 
 ## Workflow
 
-1. **Leer configuración**: `portals.yml`
-2. **Leer historial**: `data/scan-history.tsv` → URLs ya vistas
-3. **Leer dedup sources**: `data/applications.md` + `data/pipeline.md`
+1. **Read configuration**: `portals.yml`
+2. **Read history**: `data/scan-history.tsv` → URLs already seen
+3. **Read dedup sources**: `data/applications.md` + `data/pipeline.md`
 
-4. **Nivel 1 — Playwright scan** (paralelo en batches de 3-5):
-   Para cada empresa en `tracked_companies` con `enabled: true` y `careers_url` definida:
-   a. `browser_navigate` a la `careers_url`
-   b. `browser_snapshot` para leer todos los job listings
-   c. Si la página tiene filtros/departamentos, navegar las secciones relevantes
-   d. Para cada job listing extraer: `{title, url, company}`
-   e. Si la página pagina resultados, navegar páginas adicionales
-   f. Acumular en lista de candidatos
-   g. Si `careers_url` falla (404, redirect), intentar `scan_query` como fallback y anotar para actualizar la URL
+4. **Level 1 — API scan:**
+   a. Run `node scan-apis.mjs` via Bash
+   b. Parse the JSON array from stdout
+   c. The stderr output shows a summary (company counts + errors)
+   d. Each entry already has `{title, url, company, department, location, compensation, platform, slug}`
+   e. These jobs are inherently real-time and don't need liveness verification
 
-5. **Nivel 2 — Greenhouse APIs** (paralelo):
-   Para cada empresa en `tracked_companies` con `api:` definida y `enabled: true`:
-   a. WebFetch de la URL de API → JSON con lista de jobs
-   b. Para cada job extraer: `{title, url, company}`
-   c. Acumular en lista de candidatos (dedup con Nivel 1)
+5. **Level 2 — agent-browser scan** (sequential):
+   For each company with `platform: workable|custom` and `enabled: true`:
+   a. Run `agent-browser open "{careers_url}" --headless --wait="networkidle"` via Bash
+   b. Run `agent-browser snapshot` via Bash to read all job listings
+   c. If the page has filters/departments, navigate the relevant sections
+   d. For each job listing extract: `{title, url, company}`
+   e. If the page paginates, navigate additional pages
+   f. Run `agent-browser close` after each company to free resources
+   g. Accumulate into the candidate list
+   h. If `careers_url` fails (404, redirect), try `scan_query` via WebSearch as fallback
 
-6. **Nivel 3 — WebSearch queries** (paralelo si posible):
-   Para cada query en `search_queries` con `enabled: true`:
-   a. Ejecutar WebSearch con el `query` definido
-   b. De cada resultado extraer: `{title, url, company}`
-      - **title**: del título del resultado (antes del " @ " o " | ")
-      - **url**: URL del resultado
-      - **company**: después del " @ " en el título, o extraer del dominio/path
-   c. Acumular en lista de candidatos (dedup con Nivel 1+2)
+6. **Level 3 — WebSearch queries:**
+   For each query in `search_queries` with `enabled: true`:
+   a. Run WebSearch with the defined `query`
+   b. Extract from each result: `{title, url, company}`
+      - **title**: from the result title (before " @ " or " | ")
+      - **url**: result URL
+      - **company**: after " @ " in the title, or extracted from domain/path
+   c. Accumulate into the candidate list (dedup against Level 1+2)
 
-6. **Filtrar por título** usando `title_filter` de `portals.yml`:
-   - Al menos 1 keyword de `positive` debe aparecer en el título (case-insensitive)
-   - 0 keywords de `negative` deben aparecer
-   - `seniority_boost` keywords dan prioridad pero no son obligatorios
+7. **Filter by title** using `title_filter` from `portals.yml`:
+   - Use `title_filter` as a guide, not a strict gate
+   - At least 1 keyword from `positive` should appear in the title (case-insensitive)
+   - 0 keywords from `negative` should appear
+   - `seniority_boost` keywords give priority but are not required
+   - **Use judgment**: if a title is clearly relevant despite not matching keywords (e.g., "AI Product Engineering Manager"), include it
 
-7. **Deduplicar** contra 3 fuentes:
-   - `scan-history.tsv` → URL exacta ya vista
-   - `applications.md` → empresa + rol normalizado ya evaluado
-   - `pipeline.md` → URL exacta ya en pendientes o procesadas
+8. **Deduplicate** against 3 sources:
+   - `scan-history.tsv` → exact URL already seen
+   - `applications.md` → company + normalized role already evaluated
+   - `pipeline.md` → exact URL already pending or processed
 
-7.5. **Verificar liveness de resultados de WebSearch (Nivel 3)** — ANTES de añadir a pipeline:
+8.5. **Verify liveness of Level 3 (WebSearch) results** — BEFORE adding to pipeline:
 
-   Los resultados de WebSearch pueden estar desactualizados (Google cachea resultados durante semanas o meses). Para evitar evaluar ofertas expiradas, verificar con Playwright cada URL nueva que provenga del Nivel 3. Los Niveles 1 y 2 son inherentemente en tiempo real y no requieren esta verificación.
+   WebSearch results can be stale (Google caches results for weeks or months). To avoid evaluating expired offers, verify with agent-browser every new URL that came from Level 3. Levels 1 and 2 are inherently real-time and don't need this verification.
 
-   Para cada URL nueva de Nivel 3 (secuencial — NUNCA Playwright en paralelo):
-   a. `browser_navigate` a la URL
-   b. `browser_snapshot` para leer el contenido
-   c. Clasificar:
-      - **Activa**: título del puesto visible + descripción del rol + botón Apply/Submit/Solicitar
-      - **Expirada** (cualquiera de estas señales):
-        - URL final contiene `?error=true` (Greenhouse redirige así cuando la oferta está cerrada)
-        - Página contiene: "job no longer available" / "no longer open" / "position has been filled" / "this job has expired" / "page not found"
-        - Solo navbar y footer visibles, sin contenido JD (contenido < ~300 chars)
-   d. Si expirada: registrar en `scan-history.tsv` con status `skipped_expired` y descartar
-   e. Si activa: continuar al paso 8
+   For each new Level 3 URL (sequential):
+   a. `agent-browser open "{url}" --headless` via Bash
+   b. `agent-browser snapshot` via Bash
+   c. Classify:
+      - **Active**: job title visible + role description + Apply/Submit button
+      - **Expired** (any of these signals):
+        - Final URL contains `?error=true` (Greenhouse redirects this way when the offer is closed)
+        - Page contains: "job no longer available" / "no longer open" / "position has been filled" / "this job has expired" / "page not found"
+        - Only navbar and footer visible, no JD content (content < ~300 chars)
+   d. If expired: log in `scan-history.tsv` with status `skipped_expired` and discard
+   e. If active: continue to step 9
+   f. `agent-browser close` after verification
 
-   **No interrumpir el scan entero si una URL falla.** Si `browser_navigate` da error (timeout, 403, etc.), marcar como `skipped_expired` y continuar con la siguiente.
+   **Don't stop the entire scan if a single URL fails.** If agent-browser errors (timeout, 403, etc.), mark as `skipped_expired` and continue to the next.
 
-8. **Para cada oferta nueva verificada que pase filtros**:
-   a. Añadir a `pipeline.md` sección "Pendientes": `- [ ] {url} | {company} | {title}`
-   b. Registrar en `scan-history.tsv`: `{url}\t{date}\t{query_name}\t{title}\t{company}\tadded`
+9. **For each new verified offer that passes the filters**:
+   a. Add to `pipeline.md` under the "Pending" section: `- [ ] {url} | {company} | {title}`
+   b. Log in `scan-history.tsv`: `{url}\t{date}\t{query_name}\t{title}\t{company}\tadded`
 
-9. **Ofertas filtradas por título**: registrar en `scan-history.tsv` con status `skipped_title`
-10. **Ofertas duplicadas**: registrar con status `skipped_dup`
-11. **Ofertas expiradas (Nivel 3)**: registrar con status `skipped_expired`
+10. **Offers filtered out by title**: log in `scan-history.tsv` with status `skipped_title`
+11. **Duplicate offers**: log with status `skipped_dup`
+12. **Expired offers (Level 3)**: log with status `skipped_expired`
 
-## Extracción de título y empresa de WebSearch results
+## Extracting title and company from WebSearch results
 
-Los resultados de WebSearch vienen en formato: `"Job Title @ Company"` o `"Job Title | Company"` o `"Job Title — Company"`.
+WebSearch results come in the format: `"Job Title @ Company"` or `"Job Title | Company"` or `"Job Title — Company"`.
 
-Patrones de extracción por portal:
+Extraction patterns by portal:
 - **Ashby**: `"Senior AI PM (Remote) @ EverAI"` → title: `Senior AI PM`, company: `EverAI`
 - **Greenhouse**: `"AI Engineer at Anthropic"` → title: `AI Engineer`, company: `Anthropic`
 - **Lever**: `"Product Manager - AI @ Temporal"` → title: `Product Manager - AI`, company: `Temporal`
 
-Regex genérico: `(.+?)(?:\s*[@|—–-]\s*|\s+at\s+)(.+?)$`
+Generic regex: `(.+?)(?:\s*[@|—–-]\s*|\s+at\s+)(.+?)$`
 
-## URLs privadas
+## Private URLs
 
-Si se encuentra una URL no accesible públicamente:
-1. Guardar el JD en `jds/{company}-{role-slug}.md`
-2. Añadir a pipeline.md como: `- [ ] local:jds/{company}-{role-slug}.md | {company} | {title}`
+If a URL isn't publicly accessible:
+1. Save the JD to `jds/{company}-{role-slug}.md`
+2. Add to pipeline.md as: `- [ ] local:jds/{company}-{role-slug}.md | {company} | {title}`
 
 ## Scan History
 
-`data/scan-history.tsv` trackea TODAS las URLs vistas:
+`data/scan-history.tsv` tracks EVERY URL seen:
 
 ```
 url	first_seen	portal	title	company	status
@@ -144,50 +199,47 @@ https://...	2026-02-10	Ashby — AI PM	SA AI	OldCo	skipped_dup
 https://...	2026-02-10	WebSearch — AI PM	PM AI	ClosedCo	skipped_expired
 ```
 
-## Resumen de salida
+## Output summary
 
 ```
 Portal Scan — {YYYY-MM-DD}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-Queries ejecutados: N
-Ofertas encontradas: N total
-Filtradas por título: N relevantes
-Duplicadas: N (ya evaluadas o en pipeline)
-Expiradas descartadas: N (links muertos, Nivel 3)
-Nuevas añadidas a pipeline.md: N
+Level 1 (APIs): N jobs from N companies (Ashby: N, Lever: N, Greenhouse: N)
+Level 2 (agent-browser): N jobs from N companies
+Level 3 (WebSearch): N results from N queries
+Total offers found: N
+Filtered by title: N relevant
+Duplicates: N (already evaluated or in pipeline)
+Expired discarded: N (dead links, Level 3)
+New entries added to pipeline.md: N
 
-  + {company} | {title} | {query_name}
+  + {company} | {title} | {source_level}
   ...
 
-→ Ejecuta /career-ops pipeline para evaluar las nuevas ofertas.
+→ Run /faber pipeline to evaluate the new offers.
 ```
 
-## Gestión de careers_url
+## portals.yml maintenance
 
-Cada empresa en `tracked_companies` debe tener `careers_url` — la URL directa a su página de ofertas. Esto evita buscarlo cada vez.
+- **Platform field** determines the scan method — update when companies switch ATS
+- **slug field** must match the ATS slug (derivable from careers_url)
+- Add new queries as new portals or interesting roles are discovered
+- Disable queries with `enabled: false` if they generate too much noise
+- Adjust filter keywords as target roles evolve
+- Add companies to `tracked_companies` when they're worth tracking closely
+- If an API returns 404, the company may have switched ATS — update `platform` to `custom` and set a new `careers_url`
+- Companies that moved ATS platforms are noted in portals.yml with comments
 
-**Patrones conocidos por plataforma:**
+## Known platform patterns for `careers_url`
+
 - **Ashby:** `https://jobs.ashbyhq.com/{slug}`
-- **Greenhouse:** `https://job-boards.greenhouse.io/{slug}` o `https://job-boards.eu.greenhouse.io/{slug}`
+- **Greenhouse:** `https://job-boards.greenhouse.io/{slug}` or `https://job-boards.eu.greenhouse.io/{slug}`
 - **Lever:** `https://jobs.lever.co/{slug}`
-- **Custom:** La URL propia de la empresa (ej: `https://openai.com/careers`)
+- **Workable:** `https://apply.workable.com/{slug}`
+- **Custom:** company's own URL (e.g., `https://openai.com/careers`)
 
-**Si `careers_url` no existe** para una empresa:
-1. Intentar el patrón de su plataforma conocida
-2. Si falla, hacer un WebSearch rápido: `"{company}" careers jobs`
-3. Navegar con Playwright para confirmar que funciona
-4. **Guardar la URL encontrada en portals.yml** para futuros scans
+## Dependencies
 
-**Si `careers_url` devuelve 404 o redirect:**
-1. Anotar en el resumen de salida
-2. Intentar scan_query como fallback
-3. Marcar para actualización manual
-
-## Mantenimiento del portals.yml
-
-- **SIEMPRE guardar `careers_url`** cuando se añade una empresa nueva
-- Añadir nuevos queries según se descubran portales o roles interesantes
-- Desactivar queries con `enabled: false` si generan demasiado ruido
-- Ajustar keywords de filtrado según evolucionen los roles target
-- Añadir empresas a `tracked_companies` cuando interese seguirlas de cerca
-- Verificar `careers_url` periódicamente — las empresas cambian de plataforma ATS
+- **Node.js** (for `scan-apis.mjs`)
+- **agent-browser** CLI (for Level 2): `npm install -g agent-browser && agent-browser install`
+- **WebSearch** tool (for Level 3)

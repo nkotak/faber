@@ -1,0 +1,79 @@
+/* StepReady.css -- terminal-receipt style summary + 3 hints + open dashboard. */
+
+.onb-step-ready {
+  display: grid;
+  gap: var(--s-5);
+}
+
+.onb-step-ready__files {
+  list-style: none;
+  display: grid;
+  gap: var(--s-1);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  color: var(--ink);
+  background: var(--vellum);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  padding: var(--s-3) var(--s-4);
+}
+.onb-step-ready__file {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-3);
+  font-feature-settings: 'tnum' 1;
+}
+.onb-step-ready__file-name {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.onb-step-ready__file-size {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.onb-step-ready__divider {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-whisper);
+}
+.onb-step-ready__divider::after {
+  content: '';
+  height: 1px;
+  background: var(--rule);
+}
+
+.onb-step-ready__hints {
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr;
+  row-gap: var(--s-2);
+  column-gap: var(--s-4);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+}
+.onb-step-ready__hint-key {
+  color: var(--phosphor);
+  letter-spacing: 0.06em;
+  font-feature-settings: 'tnum' 1;
+}
+.onb-step-ready__hint-desc {
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.onb-step-ready__hint-desc-emph {
+  color: var(--ink-soft);
+}
+
+.onb-step-ready__cta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--s-3);
+}

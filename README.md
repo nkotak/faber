@@ -1,9 +1,9 @@
-# Career-Ops
+# Faber
 
 [English](README.md) | [Español](README.es.md)
 
 <p align="center">
-  <a href="https://x.com/santifer"><img src="docs/hero-banner.jpg" alt="Career-Ops — Multi-Agent Job Search System" width="800"></a>
+  <img src="docs/hero-banner.jpg" alt="Faber — Multi-Agent Job Search System" width="800">
 </p>
 
 <p align="center">
@@ -20,7 +20,6 @@
   <img src="https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white" alt="Playwright">
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT">
-  <a href="https://discord.gg/8pRpHETxa4"><img src="https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord"></a>
   <br>
   <img src="https://img.shields.io/badge/EN-blue?style=flat" alt="EN">
   <img src="https://img.shields.io/badge/ES-red?style=flat" alt="ES">
@@ -32,16 +31,12 @@
 ---
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Career-Ops Demo" width="800">
+  <img src="docs/demo.gif" alt="Faber Demo" width="800">
 </p>
-
-<p align="center"><strong>740+ job listings evaluated · 100+ personalized CVs · 1 dream role landed</strong></p>
-
-<p align="center"><a href="https://discord.gg/8pRpHETxa4"><img src="https://img.shields.io/badge/Join_the_community-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a></p>
 
 ## What Is This
 
-Career-Ops turns any AI coding CLI into a full job search command center. Instead of manually tracking applications in a spreadsheet, you get an AI-powered pipeline that:
+Faber turns any AI coding CLI into a full job search command center. Instead of manually tracking applications in a spreadsheet, you get an AI-powered pipeline that:
 
 - **Evaluates offers** with a structured A-F scoring system (10 weighted dimensions)
 - **Generates tailored PDFs** -- ATS-optimized CVs customized per job description
@@ -49,13 +44,11 @@ Career-Ops turns any AI coding CLI into a full job search command center. Instea
 - **Processes in batch** -- evaluate 10+ offers in parallel with sub-agents
 - **Tracks everything** in a single source of truth with integrity checks
 
-> **Important: This is NOT a spray-and-pray tool.** Career-ops is a filter -- it helps you find the few offers worth your time out of hundreds. The system strongly recommends against applying to anything scoring below 4.0/5. Your time is valuable, and so is the recruiter's. Always review before submitting.
+> **Important: This is NOT a spray-and-pray tool.** Faber is a filter -- it helps you find the few offers worth your time out of hundreds. The system strongly recommends against applying to anything scoring below 4.0/5. Your time is valuable, and so is the recruiter's. Always review before submitting.
 
-Career-ops is agentic: Claude Code navigates career pages with Playwright, evaluates fit by reasoning about your CV vs the job description (not keyword matching), and adapts your resume per listing.
+Faber is agentic: Claude Code navigates career pages with Playwright, evaluates fit by reasoning about your CV vs the job description (not keyword matching), and adapts your resume per listing.
 
 > **Heads up: the first evaluations won't be great.** The system doesn't know you yet. Feed it context -- your CV, your career story, your proof points, your preferences, what you're good at, what you want to avoid. The more you nurture it, the better it gets. Think of it as onboarding a new recruiter: the first week they need to learn about you, then they become invaluable.
-
-Built by someone who used it to evaluate 740+ job offers, generate 100+ tailored CVs, and land a Head of Applied AI role. [Read the full case study](https://santifer.io/career-ops-system).
 
 ## Features
 
@@ -72,61 +65,139 @@ Built by someone who used it to evaluate 740+ job offers, generate 100+ tailored
 | **Human-in-the-Loop** | AI evaluates and recommends, you decide and act. The system never submits an application -- you always have the final call |
 | **Pipeline Integrity** | Automated merge, dedup, status normalization, health checks |
 
-## Quick Start
+## How Discovery Works — 3-Stage Cascade
+
+Faber finds new job postings using three additive levels. Each one fills gaps the previous level misses:
+
+| Level | Source | Speed | What it's good at |
+|---|---|---|---|
+| **1** | **ATS APIs** (Greenhouse, Ashby, Lever JSON endpoints) | ~5 sec for 30+ companies in parallel | Real-time, structured data including comp ranges. The fastest, most reliable layer. |
+| **2** | **agent-browser CLI** (headless Chrome scraping custom careers pages) | Sequential, ~20-40 sec/company | Companies on Workable, Oracle HCM, or custom platforms with no public API. |
+| **3** | **WebSearch** with `site:` filters | Variable | Broad discovery. Surfaces companies you don't track yet. Results need liveness verification because Google caches stale URLs. |
+
+All three run on every `/faber scan`. Results are deduplicated against `scan-history.tsv`, your active pipeline, and your applications tracker. Level 3 URLs additionally get an `agent-browser` liveness check before reaching the pipeline — dead postings get filtered out at scan time, not at evaluation time.
+
+Edit `portals.yml` to control who gets scanned at Level 1/2 and which queries run at Level 3.
+
+## Quick Start — Two Paths
+
+Choose the setup style that fits you. Both end up in the same place.
+
+### Path A — Terminal-only (Claude Code)
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/santifer/career-ops.git
-cd career-ops && npm install
+git clone https://github.com/<your-username>/faber.git
+cd faber && npm install
 npx playwright install chromium   # Required for PDF generation
+npm install -g agent-browser && agent-browser install   # For Level 2 scraping
 
-# 2. Check setup
-npm run doctor                     # Validates all prerequisites
+# 2. Validate the install
+npm run doctor
 
-# 3. Configure
-cp config/profile.example.yml config/profile.yml  # Edit with your details
-cp templates/portals.example.yml portals.yml       # Customize companies
+# 3. Set up your profile
+cp config/profile.example.yml config/profile.yml
+# Edit config/profile.yml with your name, email, target roles, salary range
 
-# 4. Add your CV
-# Create cv.md in the project root with your CV in markdown
+# 4. Set up your CV
+cp examples/cv-example.md cv.md
+# Edit cv.md with your real experience, projects, education, skills
 
-# 5. Personalize with Claude
-claude   # Open Claude Code in this directory
+# 5. Customize the portals you want scanned
+# Open portals.yml and review tracked_companies + title_filter
+# Add companies you care about, remove ones you don't, tune positive/negative keywords
 
-# Then ask Claude to adapt the system to you:
-# "Change the archetypes to backend engineering roles"
-# "Translate the modes to English"
-# "Add these 5 companies to portals.yml"
-# "Update my profile with this CV I'm pasting"
-
-# 6. Start using
-# Paste a job URL or run /career-ops
+# 6. Open Claude Code and run your first scan
+claude
+# In the Claude session:
+/faber scan              # Discovers new postings into data/pipeline.md
+/faber pipeline          # OR: /faber batch — evaluates everything in the queue
 ```
 
-> **The system is designed to be customized by Claude itself.** Modes, archetypes, scoring weights, negotiation scripts -- just ask Claude to change them. It reads the same files it uses, so it knows exactly what to edit.
+### Path B — Web dashboard onboarding (PDF upload, GUI config)
+
+```bash
+# 1. Clone and install
+git clone https://github.com/<your-username>/faber.git
+cd faber && npm install
+npx playwright install chromium
+
+# 2. Install and launch the web dashboard
+cd web-dashboard && npm install && cd ..
+npx --prefix web-dashboard faber-web   # Opens http://127.0.0.1:7433
+
+# 3. In the browser onboarding flow:
+#    - Upload your existing resume PDF — gets parsed into cv.md
+#    - Fill in your profile (name, target roles, salary) → saves config/profile.yml
+#    - Customize portals (which companies to track) via the settings UI
+#
+# 4. Then drop into Claude Code for the actual scanning:
+claude
+/faber scan
+```
+
+> **You can always switch.** The web dashboard and the terminal flow read/write the same files (`cv.md`, `config/profile.yml`, `portals.yml`, `data/*`). Onboard via dashboard one day, edit YAML by hand the next.
+
+### Don't have a CV yet?
+
+`examples/cv-example.md` is a fully fleshed-out fictional CV (Alex Chen, ML engineer) that you can copy and rewrite as your own. Or upload your existing resume PDF to the web dashboard — the onboarding flow extracts text and converts it to the canonical `cv.md` format.
+
+### Customize before you scan
+
+Two files shape what Faber surfaces. Edit them before running `/faber scan` for the first time:
+
+- **`portals.yml`** — which companies to track (Level 1 + 2) and which `site:` queries to run (Level 3). The `title_filter.positive` / `negative` keywords decide what counts as a relevant title.
+- **`config/profile.yml`** — your target roles, salary band, location policy. Drives evaluation scoring.
+
+Both have sane defaults. You can also just ask Claude to tune them: *"Add Stripe and Notion to portals.yml"* or *"Change my target roles to backend engineering."*
+
+## Browsing Your Pipeline
+
+Once you've scanned and evaluated, you have two ways to navigate hundreds of applications:
+
+### Option 1 — Terminal TUI (Go + Bubble Tea)
+
+```bash
+cd dashboard
+go build -o faber-dashboard .
+./faber-dashboard --path ..
+```
+
+Six filter tabs, four sort modes, grouped/flat view, lazy-loaded report previews, inline status changes. Vim motions. Catppuccin theme.
+
+### Option 2 — Web dashboard (React + Vite, editorial typography)
+
+```bash
+npx --prefix web-dashboard faber-web
+# Opens http://127.0.0.1:7433
+```
+
+A reader's view of reports with editorial typography, inline PDF previews, command palette, live ticker via Server-Sent Events. Built with React + TanStack Query + TanStack Virtual. Runs on the same files the TUI reads — neither touches the other, you can run both simultaneously.
+
+> **The system is designed to be customized by Claude itself.** Modes, archetypes, scoring weights, negotiation scripts — just ask Claude to change them. It reads the same files it uses, so it knows exactly what to edit.
 
 See [docs/SETUP.md](docs/SETUP.md) for the full setup guide.
 
 ## Usage
 
-Career-ops is a single slash command with multiple modes:
+Faber is a single slash command with multiple modes:
 
 ```
-/career-ops                → Show all available commands
-/career-ops {paste a JD}   → Full auto-pipeline (evaluate + PDF + tracker)
-/career-ops scan           → Scan portals for new offers
-/career-ops pdf            → Generate ATS-optimized CV
-/career-ops batch          → Batch evaluate multiple offers
-/career-ops tracker        → View application status
-/career-ops apply          → Fill application forms with AI
-/career-ops pipeline       → Process pending URLs
-/career-ops contacto       → LinkedIn outreach message
-/career-ops deep           → Deep company research
-/career-ops training       → Evaluate a course/cert
-/career-ops project        → Evaluate a portfolio project
+/faber                → Show all available commands
+/faber {paste a JD}   → Full auto-pipeline (evaluate + PDF + tracker)
+/faber scan           → Scan portals for new offers
+/faber pdf            → Generate ATS-optimized CV
+/faber batch          → Batch evaluate multiple offers
+/faber tracker        → View application status
+/faber apply          → Fill application forms with AI
+/faber pipeline       → Process pending URLs
+/faber contact        → LinkedIn outreach message
+/faber deep           → Deep company research
+/faber training       → Evaluate a course/cert
+/faber project        → Evaluate a portfolio project
 ```
 
-Or just paste a job URL or description directly -- career-ops auto-detects it and runs the full pipeline.
+Or just paste a job URL or description directly -- faber auto-detects it and runs the full pipeline.
 
 ## How It Works
 
@@ -165,48 +236,43 @@ The scanner comes with **45+ companies** ready to scan and **19 search queries**
 
 **Job boards searched:** Ashby, Greenhouse, Lever, Wellfound, Workable, RemoteFront
 
-## Dashboard TUI
-
-The built-in terminal dashboard lets you browse your pipeline visually:
-
-```bash
-cd dashboard
-go build -o career-dashboard .
-./career-dashboard --path ..
-```
-
-Features: 6 filter tabs, 4 sort modes, grouped/flat view, lazy-loaded previews, inline status changes.
-
 ## Project Structure
 
 ```
-career-ops/
-├── CLAUDE.md                    # Agent instructions
-├── cv.md                        # Your CV (create this)
-├── article-digest.md            # Your proof points (optional)
+faber/
+├── CLAUDE.md                    # Agent instructions for Claude Code
+├── cv.md                        # Your CV (gitignored — create from examples/cv-example.md or upload PDF)
+├── article-digest.md            # Your proof points (optional, gitignored)
+├── portals.yml                  # Scanner configuration (companies + queries + filters)
 ├── config/
-│   └── profile.example.yml      # Template for your profile
-├── modes/                       # 14 skill modes
-│   ├── _shared.md               # Shared context (customize this)
-│   ├── oferta.md                # Single evaluation
+│   ├── profile.example.yml      # Template for your profile (committed)
+│   └── profile.yml              # Your actual profile (gitignored — copy from example)
+├── modes/                       # Skill modes (English default; de/, fr/, pt/ available)
+│   ├── _shared.md               # Shared system context
+│   ├── _profile.template.md     # Template for user customization
+│   ├── _profile.md              # Your archetypes/narrative (gitignored)
+│   ├── offer.md                 # Single evaluation
 │   ├── pdf.md                   # PDF generation
-│   ├── scan.md                  # Portal scanner
+│   ├── scan.md                  # Portal scanner (3-stage cascade)
 │   ├── batch.md                 # Batch processing
 │   └── ...
 ├── templates/
 │   ├── cv-template.html         # ATS-optimized CV template
-│   ├── portals.example.yml      # Scanner config template
-│   └── states.yml               # Canonical statuses
+│   ├── portals.example.yml      # Scanner config example
+│   └── states.yml               # Canonical pipeline statuses
 ├── batch/
 │   ├── batch-prompt.md          # Self-contained worker prompt
-│   └── batch-runner.sh          # Orchestrator script
-├── dashboard/                   # Go TUI pipeline viewer
-├── data/                        # Your tracking data (gitignored)
+│   └── batch-runner.sh          # Parallel-worker orchestrator
+├── dashboard/                   # Go + Bubble Tea TUI (terminal pipeline viewer)
+├── web-dashboard/               # React + Vite web dashboard (PDF onboarding, editorial reports)
+├── data/                        # Your tracking data (gitignored, .gitkeep preserves folder)
 ├── reports/                     # Evaluation reports (gitignored)
 ├── output/                      # Generated PDFs (gitignored)
+├── interview-prep/              # Interview prep notes per company (gitignored)
+├── jds/                         # Saved JDs from private/non-public URLs (gitignored)
 ├── fonts/                       # Space Grotesk + DM Sans
 ├── docs/                        # Setup, customization, architecture
-└── examples/                    # Sample CV, report, proof points
+└── examples/                    # Sample CV (`cv-example.md`), report, proof points
 ```
 
 ## Tech Stack
@@ -219,35 +285,14 @@ career-ops/
 
 - **Agent**: Claude Code with custom skills and modes
 - **PDF**: Playwright/Puppeteer + HTML template
-- **Scanner**: Playwright + Greenhouse API + WebSearch
-- **Dashboard**: Go + Bubble Tea + Lipgloss (Catppuccin Mocha theme)
+- **Scanner**: ATS JSON APIs + agent-browser (headless Chrome) + WebSearch
+- **TUI Dashboard**: Go + Bubble Tea + Lipgloss (Catppuccin theme, vim motions)
+- **Web Dashboard**: React + Vite + Fastify + TanStack Query/Virtual + Server-Sent Events
 - **Data**: Markdown tables + YAML config + TSV batch files
-
-## Also Open Source
-
-- **[cv-santiago](https://github.com/santifer/cv-santiago)** -- The portfolio website (santifer.io) with AI chatbot, LLMOps dashboard, and case studies. If you need a portfolio to showcase alongside your job search, fork it and make it yours.
-
-## About the Author
-
-I'm Santiago -- Head of Applied AI, former founder (built and sold a business that still runs with my name on it). I built career-ops to manage my own job search. It worked: I used it to land my current role.
-
-My portfolio and other open source projects → [santifer.io](https://santifer.io)
-
-☕ [Buy me a coffee](https://buymeacoffee.com/santifer) if career-ops helped your job search.
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=santifer%2Fcareer-ops&type=timeline&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=santifer/career-ops&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=santifer/career-ops&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=santifer/career-ops&type=timeline&legend=top-left" />
- </picture>
-</a>
 
 ## Disclaimer
 
-**career-ops is a local, open-source tool — NOT a hosted service.** By using this software, you acknowledge:
+**faber is a local, open-source tool — NOT a hosted service.** By using this software, you acknowledge:
 
 1. **You control your data.** Your CV, contact info, and personal data stay on your machine and are sent directly to the AI provider you choose (Anthropic, OpenAI, etc.). We do not collect, store, or have access to any of your data.
 2. **You control the AI.** The default prompts instruct the AI not to auto-submit applications, but AI models can behave unpredictably. If you modify the prompts or use different models, you do so at your own risk. **Always review AI-generated content for accuracy before submitting.**
@@ -259,12 +304,3 @@ See [LEGAL_DISCLAIMER.md](LEGAL_DISCLAIMER.md) for full details. This software i
 ## License
 
 MIT
-
-## Let's Connect
-
-[![Website](https://img.shields.io/badge/santifer.io-000?style=for-the-badge&logo=safari&logoColor=white)](https://santifer.io)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/santifer)
-[![X](https://img.shields.io/badge/X-000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/santifer)
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/8pRpHETxa4)
-[![Email](https://img.shields.io/badge/Email-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:hi@santifer.io)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/santifer)

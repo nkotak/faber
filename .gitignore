@@ -1,4 +1,8 @@
 # Personal data (user fills these)
+cv.md
+cv-imported.md
+cv.md.bak-*
+*.bak-*
 data/applications.md
 data/pipeline.md
 data/scan-history.tsv
@@ -14,10 +18,14 @@ batch/tracker-additions/*.tsv
 !batch/tracker-additions/.gitkeep
 jds/*
 !jds/.gitkeep
+interview-prep/*
+!interview-prep/.gitkeep
 
-# User config and customization (never auto-updated)
+# Root-level resume PDFs (uploaded by user, never committed)
+/*.pdf
+
+# User config (use config/profile.example.yml as a starting point, copy to profile.yml)
 config/profile.yml
-portals.yml
 modes/_profile.md
 .update-dismissed
 .update-lock
@@ -25,6 +33,8 @@ modes/_profile.md
 # Generated
 .resolved-prompt-*
 node_modules/
+web-dashboard/node_modules/
+web-dashboard/dist/
 
 # OS
 .DS_Store
@@ -34,5 +44,10 @@ node_modules/
 # Claude Code local
 .claude/settings.local.json
 .claude/memory/
+
+# Built dashboards (binaries)
 career-dashboard
+faber-dashboard
+dashboard/faber
+dashboard/career-dashboard
 package-lock.json

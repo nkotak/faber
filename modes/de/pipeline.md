@@ -1,13 +1,13 @@
 # Modus: pipeline — URL-Inbox (Second Brain)
 
-Verarbeitet URLs von Stellenanzeigen, die in `data/pipeline.md` gesammelt wurden. Der Kandidat wirft URLs ins Inbox, wann immer er eine entdeckt, und führt später `/career-ops pipeline` aus, um sie alle in einem Rutsch zu verarbeiten.
+Verarbeitet URLs von Stellenanzeigen, die in `data/pipeline.md` gesammelt wurden. Der Kandidat wirft URLs ins Inbox, wann immer er eine entdeckt, und führt später `/faber pipeline` aus, um sie alle in einem Rutsch zu verarbeiten.
 
 ## Workflow
 
 1. **Lesen** von `data/pipeline.md` → alle Items mit `- [ ]` im Abschnitt "Pendientes" / "Pending" / "Offen" finden
 2. **Für jede offene URL**:
    a. Nächste fortlaufende `REPORT_NUM` berechnen (in `reports/` lesen, höchste Nummer + 1)
-   b. **Stellenanzeige extrahieren** mit Playwright (`browser_navigate` + `browser_snapshot`) → WebFetch → WebSearch
+   b. **Stellenanzeige extrahieren** nach Prioritätskette (siehe unten): `fetch-jd.mjs` (ATS API) → agent-browser → Playwright MCP → WebFetch → WebSearch
    c. Wenn die URL nicht erreichbar ist → als `- [!]` mit Notiz markieren und weitermachen
    d. **Vollständige Auto-Pipeline ausführen**: A-F-Bewertung → Report .md → PDF (wenn Score >= 3.0) → Tracker
    e. **Von "Offen" nach "Verarbeitet" verschieben**: `- [x] #NNN | URL | Firma | Rolle | Score/5 | PDF ✅/❌`
@@ -35,9 +35,11 @@ Verarbeitet URLs von Stellenanzeigen, die in `data/pipeline.md` gesammelt wurden
 
 ## Intelligente Erkennung der Stellenanzeige aus der URL
 
-1. **Playwright (bevorzugt):** `browser_navigate` + `browser_snapshot`. Funktioniert mit allen SPAs.
-2. **WebFetch (Fallback):** Für statische Seiten oder wenn Playwright nicht verfügbar ist.
-3. **WebSearch (letzter Ausweg):** In sekundären Portalen suchen, die die Stellenanzeige indexieren.
+1. **ATS JSON API (bevorzugt):** `node fetch-jd.mjs "{URL}"`. Greenhouse/Ashby/Lever via öffentliche JSON-Endpoints. ~200ms pro URL, parallel-sicher, kein Browser. Exit 0 bei Erfolg; Exit != 0 wenn nicht API-unterstützt — weiter zur nächsten Methode.
+2. **agent-browser (Fallback #1):** Rust-nativer Headless-Chrome CLI. Parallel-sicher (eigene Instanz pro Aufruf). Funktioniert im `claude -p`-Batch-Kontext.
+3. **Playwright MCP (Fallback #2):** `browser_navigate` + `browser_snapshot`. Nur in interaktiven Einzelagent-Sessions. NIEMALS 2+ Agenten parallel (`_shared.md:95`).
+4. **WebFetch (Fallback #3):** Für statische HTML-Seiten ohne JS-Rendering.
+5. **WebSearch (letzter Ausweg):** In sekundären Portalen suchen, die die Stellenanzeige indexieren.
 
 **Sonderfälle:**
 - **LinkedIn**: Kann Login erfordern → mit `[!]` markieren und den Kandidaten bitten, den Text einzufügen

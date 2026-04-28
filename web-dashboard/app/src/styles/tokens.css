@@ -1,0 +1,145 @@
+/* tokens.css - design tokens for the Trade Desk direction (editorial pass).
+ *
+ * Revised palette: swapped amber-phosphor (hue 65) for editorial ink-teal
+ * (hue 200). Teal reads as considered and calm - the tone of a museum
+ * caption or a page of bound specifications - rather than amber-on-black
+ * trading-terminal. Secondary accent shifted from 245 (blue-violet edge;
+ * some displays read it as purple) to 215 (honest blue, no drift).
+ *
+ * Both themes, token-identical surface. Palettes are OKLCH so lightness
+ * scales are perceptually uniform and chroma stays restrained near the
+ * extremes. Neutrals are tinted toward the teal hue so the whole
+ * surface carries a subconscious continuity with the accent.
+ */
+
+:root {
+  /* --- spacing scale (4pt) ----------------------------------------------- */
+  --s-0: 0;
+  --s-05: 2px;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* --- type scale (1.25 ratio, tighter at small end) --------------------- */
+  --t-xs: 10.5px;
+  --t-sm: 12px;
+  --t-base: 13.5px;
+  --t-md: 15.5px;
+  --t-lg: 19px;
+  --t-xl: 24px;
+  --t-2xl: 34px;
+  --t-display: clamp(44px, 4.5vw, 64px);
+
+  /* --- typography families ---------------------------------------------- */
+  --font-display: 'Gloock', 'Bodoni 72', 'Didot', 'Big Caslon', Georgia, serif;
+  --font-prose: 'Spectral', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Fragment Mono', 'Berkeley Mono', 'JetBrains Mono', 'SF Mono',
+    ui-monospace, monospace;
+
+  /* --- radii (restrained; sharp edges are the point) --------------------- */
+  --r-0: 0;
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-3: 8px;
+
+  /* --- motion ----------------------------------------------------------- */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --d-fast: 120ms;
+  --d-med: 240ms;
+  --d-slow: 420ms;
+
+  /* --- layout ----------------------------------------------------------- */
+  --measure-prose: 72ch;
+  --masthead-h: 56px;
+  --tray-h: 56px;
+}
+
+/* --- Light ("broadsheet paper") ---------------------------------------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* paper surfaces: warm off-white, tinted very faintly toward the teal
+   * accent so the whole page reads as a single cohesive surface. */
+  --paper:         oklch(0.988 0.004 210);
+  --paper-raised:  oklch(0.970 0.006 210);
+  --paper-sunken:  oklch(0.952 0.008 210);
+  --vellum:        oklch(0.975 0.010 205);   /* body reading surface, slightly warmer */
+
+  /* inks - the text. Deep teal-black, not pure black. */
+  --ink:           oklch(0.225 0.020 215);
+  --ink-soft:      oklch(0.360 0.018 215);
+  --ink-muted:     oklch(0.510 0.015 215);
+  --ink-whisper:   oklch(0.660 0.012 210);
+
+  /* rules (dividers, borders) */
+  --rule:          oklch(0.892 0.008 210);
+  --rule-strong:   oklch(0.810 0.012 210);
+
+  /* accent: editorial ink-teal. The ONE accent color; used rarely. */
+  --phosphor:      oklch(0.510 0.105 200);
+  --phosphor-glow: oklch(0.620 0.115 200);
+  --phosphor-dim:  oklch(0.760 0.060 205);
+
+  /* signal colors - used only for status pills, never decoration */
+  --verdant:       oklch(0.540 0.130 155);    /* interview / offer */
+  --verdant-soft:  oklch(0.930 0.040 155);
+  --ember:         oklch(0.540 0.170 28);     /* rejected */
+  --ember-soft:    oklch(0.940 0.045 28);
+  --azure:         oklch(0.500 0.110 215);    /* evaluated / responded */
+  --azure-soft:    oklch(0.930 0.045 215);
+
+  --shadow-low: 0 1px 2px oklch(0.22 0.02 215 / 0.05),
+    0 1px 3px oklch(0.22 0.02 215 / 0.035);
+  --shadow-mid: 0 8px 22px oklch(0.22 0.02 215 / 0.08),
+    0 2px 5px oklch(0.22 0.02 215 / 0.04);
+}
+
+/* --- Dark ("private study after hours") -------------------------------- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --paper:         oklch(0.160 0.015 210);
+  --paper-raised:  oklch(0.195 0.018 210);
+  --paper-sunken:  oklch(0.125 0.012 210);
+  --vellum:        oklch(0.180 0.016 208);
+
+  --ink:           oklch(0.945 0.010 210);
+  --ink-soft:      oklch(0.840 0.012 210);
+  --ink-muted:     oklch(0.680 0.012 210);
+  --ink-whisper:   oklch(0.520 0.010 210);
+
+  --rule:          oklch(0.270 0.018 210);
+  --rule-strong:   oklch(0.360 0.022 210);
+
+  --phosphor:      oklch(0.740 0.110 200);
+  --phosphor-glow: oklch(0.830 0.120 200);
+  --phosphor-dim:  oklch(0.520 0.070 205);
+
+  --verdant:       oklch(0.760 0.140 155);
+  --verdant-soft:  oklch(0.280 0.055 155);
+  --ember:         oklch(0.720 0.170 28);
+  --ember-soft:    oklch(0.280 0.060 28);
+  --azure:         oklch(0.760 0.120 215);
+  --azure-soft:    oklch(0.260 0.060 215);
+
+  --shadow-low: 0 1px 2px oklch(0 0 0 / 0.4), 0 1px 3px oklch(0 0 0 / 0.3);
+  --shadow-mid: 0 10px 24px oklch(0 0 0 / 0.5), 0 3px 6px oklch(0 0 0 / 0.35);
+}
+
+/* --- Reduced motion ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-fast: 0ms;
+    --d-med: 0ms;
+    --d-slow: 0ms;
+  }
+}

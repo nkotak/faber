@@ -1,0 +1,68 @@
+/* PaneCV.css -- raw markdown editor + preview.
+ *
+ * Layout-only rules. Error/hint styling lives in SettingsView.css under
+ * .settings-error / .settings-hint and is applied directly. Tab styling
+ * is local because the edit/preview toggle is a CV-pane-specific affordance.
+ */
+
+.pane-cv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  height: 100%;
+  min-height: 0;
+}
+.pane-cv__bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 0 0 auto;
+}
+.pane-cv__tab {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  background: var(--paper);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out-quart),
+    border-color var(--d-fast) var(--ease-out-quart),
+    background var(--d-fast) var(--ease-out-quart);
+}
+.pane-cv__tab:hover {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.pane-cv__tab--active {
+  color: var(--ink);
+  border-color: var(--ink);
+  background: var(--paper-raised);
+}
+.pane-cv__tab:focus-visible {
+  outline: 1px solid var(--phosphor);
+  outline-offset: 2px;
+}
+.pane-cv__backup-notice {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+  margin-left: var(--s-2);
+}
+.pane-cv__body {
+  flex: 1 1 auto;
+  display: grid;
+  min-height: 0;
+}
+.pane-cv__textarea {
+  min-height: 60vh;
+  resize: vertical;
+}
+.pane-cv__preview {
+  min-height: 40vh;
+  padding-right: var(--s-3);
+}

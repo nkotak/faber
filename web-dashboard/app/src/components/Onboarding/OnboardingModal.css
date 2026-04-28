@@ -1,0 +1,339 @@
+/* OnboardingModal.css -- non-dismissable first-run modal.
+ *
+ * Z-index 70 sits above the command palette (z-50) and the StatusPicker
+ * (z-60). The modal is the only thing the user can interact with while
+ * mounted; the dashboard renders behind, blurred. The backdrop pattern
+ * mirrors Palette.css:4 (color-mix with paper, blur + saturate).
+ */
+
+.onb-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklch, var(--paper) 82%, transparent);
+  backdrop-filter: blur(8px) saturate(115%);
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--s-5);
+  animation: onb-fade-in var(--d-med) var(--ease-out-quart);
+}
+
+@keyframes onb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-backdrop { animation: none; }
+}
+
+.onb-modal {
+  width: clamp(560px, 64vw, 760px);
+  max-height: calc(100vh - var(--s-8));
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-mid);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  outline: none;
+  animation: onb-rise var(--d-slow) var(--ease-out-quint);
+  position: relative;
+}
+@keyframes onb-rise {
+  from { transform: translateY(8px) scale(0.99); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-modal { animation: none; }
+}
+
+/* head: brand line + step title */
+.onb-modal__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5) var(--s-3);
+  border-bottom: 1px solid var(--rule);
+}
+.onb-modal__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+}
+.onb-modal__wordmark {
+  font-family: var(--font-display);
+  font-size: var(--t-xl);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  line-height: 1;
+}
+.onb-modal__rule {
+  width: 12px;
+  height: 1px;
+  background: var(--ink-muted);
+}
+.onb-modal__brand-label {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+}
+.onb-modal__step-counter {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-whisper);
+  text-transform: uppercase;
+  font-variant-numeric: oldstyle-nums;
+}
+
+.onb-modal__head-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.onb-modal__skip {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-1);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out-quart),
+    border-color var(--d-fast) var(--ease-out-quart);
+}
+.onb-modal__skip:hover {
+  color: var(--ink);
+  border-color: var(--ink-muted);
+}
+.onb-modal__skip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* body: scrolling step content */
+.onb-modal__body {
+  padding: var(--s-5) var(--s-6) var(--s-5);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.onb-modal__step-title {
+  font-family: var(--font-display);
+  font-size: var(--t-2xl);
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: var(--s-2);
+  view-transition-name: onboarding-step-title;
+}
+
+.onb-modal__step-subtitle {
+  font-family: var(--font-prose);
+  font-size: var(--t-md);
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin-bottom: var(--s-5);
+  line-height: 1.5;
+}
+
+/* foot: progress + nav */
+.onb-modal__foot {
+  display: grid;
+  grid-template-rows: auto auto;
+  border-top: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+/* notice that fades in on Esc and out after 2s */
+.onb-modal__esc-notice {
+  position: absolute;
+  bottom: calc(var(--s-7) + var(--s-3));
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+  background: var(--paper);
+  padding: 6px var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--d-fast) var(--ease-out-quart);
+}
+.onb-modal__esc-notice--visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(onboarding-step-title),
+  ::view-transition-new(onboarding-step-title) {
+    animation: none;
+  }
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  ::view-transition-old(onboarding-step-title),
+  ::view-transition-new(onboarding-step-title) {
+    animation-duration: 320ms;
+    animation-timing-function: var(--ease-out-quart);
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(onboarding-step-title) {
+    animation-name: onb-title-out;
+  }
+  ::view-transition-new(onboarding-step-title) {
+    animation-name: onb-title-in;
+  }
+}
+@keyframes onb-title-out {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes onb-title-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* boot states (full-screen, used before the gate has a status answer) */
+.onb-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-content: center;
+  background: var(--paper);
+  padding: var(--s-6);
+}
+.onb-boot__inner {
+  display: grid;
+  gap: var(--s-3);
+  text-align: center;
+  color: var(--ink-muted);
+  max-width: 48ch;
+}
+.onb-boot__bars {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 5px;
+  justify-self: center;
+  margin-bottom: var(--s-2);
+}
+.onb-boot__bars span {
+  width: 4px;
+  height: 16px;
+  background: var(--phosphor-dim);
+  display: inline-block;
+  border-radius: 1px;
+  animation: onb-bars 900ms var(--ease-out-quart) infinite;
+}
+.onb-boot__bars span:nth-child(1) { animation-delay: 0ms; }
+.onb-boot__bars span:nth-child(2) { animation-delay: 80ms; }
+.onb-boot__bars span:nth-child(3) { animation-delay: 160ms; }
+.onb-boot__bars span:nth-child(4) { animation-delay: 240ms; }
+.onb-boot__bars span:nth-child(5) { animation-delay: 320ms; }
+.onb-boot__bars span:nth-child(6) { animation-delay: 400ms; }
+@keyframes onb-bars {
+  0%, 100% { transform: scaleY(0.4); background: var(--phosphor-dim); }
+  40% { transform: scaleY(1); background: var(--phosphor); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-boot__bars span { animation: none; transform: scaleY(0.7); }
+}
+
+.onb-boot__retry {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  border: 1px solid var(--ink);
+  color: var(--phosphor);
+  padding: 8px var(--s-4);
+  border-radius: var(--r-2);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  margin-top: var(--s-3);
+  justify-self: center;
+}
+.onb-boot__retry:hover {
+  background: color-mix(in oklch, var(--paper-raised) 70%, var(--phosphor) 30%);
+}
+
+.onb-boot__err {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ember);
+  background: var(--ember-soft);
+  padding: var(--s-3);
+  border-radius: var(--r-2);
+  white-space: pre-wrap;
+  text-align: left;
+  max-width: 60ch;
+}
+
+/* nav bar — back / next / optional skip */
+.onb-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-3) var(--s-5);
+  gap: var(--s-3);
+}
+.onb-nav__hint {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--ink-whisper);
+  letter-spacing: 0.14em;
+}
+.onb-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.onb-btn {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  letter-spacing: 0.08em;
+  padding: 8px var(--s-4);
+  border-radius: var(--r-2);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-soft);
+  background: var(--paper);
+  cursor: pointer;
+  transition: border-color var(--d-fast) var(--ease-out-quart),
+    color var(--d-fast) var(--ease-out-quart);
+}
+.onb-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.onb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* the rare phosphor accent — primary "Next" / "Open dashboard" button */
+.onb-btn--primary {
+  border: 1px solid var(--ink);
+  color: var(--phosphor);
+  background: var(--paper);
+}
+.onb-btn--primary:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--paper-raised) 80%, var(--phosphor) 20%);
+}
+
+.onb-btn--ghost {
+  border-color: transparent;
+  color: var(--ink-whisper);
+}
+.onb-btn--ghost:hover {
+  border-color: var(--rule);
+  color: var(--ink-muted);
+}

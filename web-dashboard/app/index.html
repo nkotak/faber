@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Faber &middot; operational board for a job search." />
+    <title>Faber &middot; operational board</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      Theme bootstrap. Reads localStorage.theme (values: 'auto' | 'light' |
+      'dark'). Applied before paint to avoid any flash-of-wrong-theme.
+    -->
+    <script>
+      (function () {
+        try {
+          // Default: light. Calmer first impression, stays out of the way.
+          // User can flip via the masthead button (auto / light / dark).
+          var pref = localStorage.getItem('faber.theme') || 'light';
+          var root = document.documentElement;
+          root.dataset.themePref = pref;
+          if (pref === 'light') root.dataset.theme = 'light';
+          else if (pref === 'dark') root.dataset.theme = 'dark';
+          else {
+            root.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+        } catch (_) {
+          document.documentElement.dataset.theme = 'light';
+          document.documentElement.dataset.themePref = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

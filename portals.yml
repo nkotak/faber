@@ -1,0 +1,701 @@
+# Portal Scanner Configuration
+# Used by /faber scan to discover new offers automatically.
+#
+# Strategy (3 levels):
+#   1. APIs → Ashby, Lever, Greenhouse JSON APIs (real-time, structured, reliable)
+#   2. agent-browser CLI → custom careers pages (headless Chrome via CLI)
+#   3. WebSearch with site: filters (broad discovery, may be stale)
+#
+# Each tracked company has a `platform` field:
+#   ashby      → API: api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
+#   lever      → API: api.lever.co/v0/postings/{slug}
+#   greenhouse → API: boards-api.greenhouse.io/v1/boards/{slug}/jobs
+#   workable   → Browser: agent-browser (no public API)
+#   custom     → Browser: agent-browser
+#
+# IMPORTANT: Each company in tracked_companies MUST have careers_url.
+#
+# HOW TO CUSTOMIZE:
+#   1. Copy this file to portals.yml in the project root
+#   2. Edit title_filter.positive with YOUR target role keywords
+#   3. Add/remove companies in tracked_companies
+#   4. Adjust search_queries for your preferred job boards
+#   5. Set enabled: false on companies you don't care about
+
+# -- Title filter --
+# The scanner uses these keywords to decide if a title is relevant.
+# At least 1 positive must match AND 0 negatives must match (case-insensitive).
+
+title_filter:
+  positive:
+    # -- Core PM titles --
+    - "Product Manager"
+    - "Technical PM"
+    - "Technical Product Manager"
+    - "Group Product Manager"
+    - "Product Lead"
+    - "Principal Product Lead"
+    - "Principal Product Manager"
+    # -- AI/ML PM titles --
+    - "AI Product Manager"
+    - "ML Product Manager"
+    - "AI PM"
+    - "Product Manager AI"
+    - "Product Manager ML"
+    - "Product Manager, Research"
+    - "Product Manager, AI"
+    - "Product Manager, Platform"
+    - "Product Manager, SDK"
+    - "Product Manager, Developer"
+    - "Product Manager, Infrastructure"
+    - "Product Manager, GenAI"
+    - "Product Manager, Generative AI"
+    - "Applied AI Product Manager"
+    - "Product Manager, Applied AI"
+    # -- AI-adjacent leadership --
+    - "AI"
+    - "ML"
+    - "LLM"
+    - "GenAI"
+    - "Generative AI"
+    - "Agentic"
+    - "Agent"
+  negative:
+    - "Junior"
+    - "Intern"
+    - "Associate Product Manager"
+    - "APM"
+    - ".NET"
+    - "Java "
+    - "iOS"
+    - "Android"
+    - "PHP"
+    - "Ruby"
+    - "Embedded"
+    - "Firmware"
+    - "FPGA"
+    - "ASIC"
+    - "Blockchain"
+    - "Web3"
+    - "Crypto"
+    - "Salesforce Admin"
+    - "SAP "
+    - "Oracle EBS"
+    - "Mainframe"
+    - "COBOL"
+    - "Solutions Architect"
+    - "Solutions Engineer"
+    - "Forward Deployed"
+    - "Customer Engineer"
+    - "DevRel"
+    - "Developer Advocate"
+  seniority_boost:
+    - "Senior"
+    - "Staff"
+    - "Principal"
+    - "Lead"
+    - "Head"
+    - "Director"
+    - "Group"
+
+# -- Search queries --
+search_queries:
+
+  # -- Ashby --
+  - name: Ashby — Staff/Principal PM AI
+    query: 'site:jobs.ashbyhq.com "Staff Product Manager" OR "Principal Product Manager" OR "Senior Product Manager" AI remote'
+    enabled: true
+
+  - name: Ashby — PM Platform/Infra
+    query: 'site:jobs.ashbyhq.com "Product Manager" "platform" OR "infrastructure" OR "messaging" OR "notifications" OR "SDK" remote'
+    enabled: true
+
+  - name: Ashby — PM GenAI/Agentic
+    query: 'site:jobs.ashbyhq.com "Product Manager" "GenAI" OR "generative AI" OR "agentic" OR "LLM" remote'
+    enabled: true
+
+  # -- Greenhouse --
+  - name: Greenhouse — Staff/Principal PM AI
+    query: 'site:boards.greenhouse.io OR site:job-boards.greenhouse.io "Staff Product Manager" OR "Principal Product Manager" AI remote'
+    enabled: true
+
+  - name: Greenhouse — Senior PM AI/ML
+    query: 'site:boards.greenhouse.io OR site:job-boards.greenhouse.io "Senior Product Manager" AI OR ML OR "generative" remote'
+    enabled: true
+
+  - name: Greenhouse — PM Platform/Messaging
+    query: 'site:boards.greenhouse.io OR site:job-boards.greenhouse.io "Product Manager" "platform" OR "messaging" OR "notifications" OR "developer" remote'
+    enabled: true
+
+  # -- Lever --
+  - name: Lever — Staff/Principal PM
+    query: 'site:jobs.lever.co "Staff Product Manager" OR "Principal Product Manager" OR "Group Product Manager" AI remote'
+    enabled: true
+
+  - name: Lever — Senior PM AI
+    query: 'site:jobs.lever.co "Senior Product Manager" AI OR ML OR "generative" OR "agentic" remote'
+    enabled: true
+
+  # -- Wellfound (startups) --
+  - name: Wellfound — AI PM
+    query: 'site:wellfound.com "Product Manager" AI OR ML "staff" OR "principal" OR "senior" remote'
+    enabled: true
+
+  # -- Workable --
+  - name: Workable — PM AI
+    query: 'site:apply.workable.com "Product Manager" AI OR ML OR "generative" remote'
+    enabled: true
+
+  # -- YC / Startup boards --
+  - name: YC Jobs — Staff/Principal PM
+    query: 'site:workatastartup.com "Product Manager" AI OR ML "staff" OR "principal" OR "senior" remote'
+    enabled: true
+
+  # -- Big Tech direct --
+  - name: Google — PM AI
+    query: 'site:careers.google.com "Product Manager" AI OR ML OR "generative"'
+    enabled: true
+
+  - name: Meta — PM AI
+    query: 'site:metacareers.com "Product Manager" AI OR ML OR "generative"'
+    enabled: true
+
+  - name: Apple — PM AI
+    query: 'site:jobs.apple.com "Product Manager" AI OR ML OR "machine learning"'
+    enabled: true
+
+  - name: Microsoft — PM AI
+    query: 'site:careers.microsoft.com "Product Manager" AI OR "Copilot" OR "generative" OR ML'
+    enabled: true
+
+  - name: Amazon — PM AI
+    query: 'site:amazon.jobs "Product Manager" AI OR ML OR "generative" OR "Alexa" OR "Bedrock"'
+    enabled: true
+
+  # -- Media & Entertainment --
+  - name: Disney — PM
+    query: 'site:jobs.disneycareers.com "Product Manager" OR "Technical Product Manager"'
+    enabled: true
+
+  - name: Netflix — PM
+    query: 'site:explore.jobs.netflix.net "Product Manager" OR "Technical PM"'
+    enabled: true
+
+  - name: NBC Universal — PM
+    query: 'site:nbcunicareers.com/find-a-job "Product Manager" AI OR "platform" OR "Peacock"'
+    enabled: true
+
+  - name: CNN / Warner Bros Discovery — PM
+    query: '"Warner Bros Discovery" OR "CNN" "Product Manager" AI OR "platform" OR "messaging" site:wbd.com OR site:careers.wbd.com'
+    enabled: true
+
+  # -- Sports --
+  - name: MLB — PM
+    query: 'site:mlb.com/careers/opportunities "Product Manager"'
+    enabled: true
+
+  - name: NFL — PM
+    query: '"NFL" "Product Manager" site:nfl.com OR site:careers.nfl.com'
+    enabled: true
+
+  - name: NBA — PM
+    query: '"NBA" "Product Manager" site:nba.com OR site:careers.nba.com'
+    enabled: true
+
+  - name: Fanatics — PM
+    query: 'site:jobs.lever.co/fanatics OR "fanatics" "Product Manager" AI OR "platform"'
+    enabled: true
+
+  - name: Yankees — PM
+    query: '"New York Yankees" OR "yankees" "Product Manager" OR "technology"'
+    enabled: true
+
+  # -- General aggregators (US) --
+  - name: HN Who's Hiring — PM AI
+    query: 'site:news.ycombinator.com "Product Manager" AI OR ML "staff" OR "principal" OR "senior" remote'
+    enabled: true
+
+  - name: RemoteOK — PM AI
+    query: 'site:remoteok.com "Product Manager" AI OR ML OR "generative"'
+    enabled: true
+
+
+# -- Tracked companies --
+tracked_companies:
+
+  # ============================================================
+  # AI LABS & LLM PROVIDERS
+  # ============================================================
+
+  - name: Anthropic
+    platform: greenhouse
+    slug: anthropic
+    careers_url: https://job-boards.greenhouse.io/anthropic
+    notes: "Claude. Top target."
+    enabled: true
+
+  - name: OpenAI
+    platform: ashby
+    slug: openai
+    careers_url: https://jobs.ashbyhq.com/openai
+    notes: "Primary ATS is Ashby (openai.com/careers redirects). API returns 642+ jobs with comp data."
+    enabled: true
+
+  - name: Cohere
+    platform: ashby
+    slug: cohere
+    careers_url: https://jobs.ashbyhq.com/cohere
+    notes: "Enterprise LLM provider. Toronto + remote US."
+    enabled: true
+
+  - name: Mistral AI
+    platform: lever
+    slug: mistral
+    careers_url: https://jobs.lever.co/mistral
+    notes: "Paris + US. European AI lab."
+    enabled: true
+
+  - name: Perplexity
+    platform: ashby
+    slug: perplexity
+    careers_url: https://jobs.ashbyhq.com/perplexity
+    notes: "AI search platform."
+    enabled: true
+
+  - name: Distyl AI
+    platform: ashby
+    slug: distyl
+    careers_url: https://jobs.ashbyhq.com/distyl
+    notes: "Applied AI lab."
+    enabled: true
+
+  - name: Runway
+    platform: ashby
+    slug: runway-ml
+    careers_url: https://jobs.ashbyhq.com/runway-ml
+    notes: "Generative AI video. NYC. Migrated to Ashby (slug: runway-ml). 40 jobs as of 2026-04-28."
+    enabled: true
+
+  - name: xAI
+    platform: greenhouse
+    slug: xai
+    careers_url: https://job-boards.greenhouse.io/xai
+    notes: "Elon AI lab. Grok, API, enterprise AI."
+    enabled: true
+
+  - name: ElevenLabs
+    platform: ashby
+    slug: elevenlabs
+    careers_url: https://jobs.ashbyhq.com/elevenlabs
+    notes: "Voice AI."
+    enabled: true
+
+  - name: Stability AI
+    platform: greenhouse
+    slug: stabilityai
+    careers_url: https://job-boards.greenhouse.io/stabilityai
+    notes: "Generative AI image/video."
+    enabled: true
+
+  - name: Hume AI
+    platform: greenhouse
+    slug: humeai
+    careers_url: https://job-boards.greenhouse.io/humeai
+    notes: "NYC. Empathic voice AI."
+    enabled: true
+
+  - name: Black Forest Labs
+    platform: greenhouse
+    slug: blackforestlabs
+    careers_url: https://job-boards.greenhouse.io/blackforestlabs
+    notes: "SF / Freiburg. FLUX image models, ex-Stable Diffusion team."
+    enabled: true
+
+  - name: Hugging Face
+    platform: workable
+    slug: huggingface
+    careers_url: https://apply.workable.com/huggingface/
+    notes: "ML hub, open-source models. NYC / Remote."
+    enabled: true
+
+  - name: Lovable
+    platform: ashby
+    slug: lovable
+    careers_url: https://jobs.ashbyhq.com/lovable
+    notes: "AI app builder (text-to-app). Stockholm + remote."
+    enabled: true
+
+  # ============================================================
+  # AI-NATIVE SAAS & DEV TOOLS
+  # ============================================================
+
+  - name: Vercel
+    platform: greenhouse
+    slug: vercel
+    careers_url: https://job-boards.greenhouse.io/vercel
+    notes: "AI SDK, v0.dev. You deploy on Vercel already."
+    enabled: true
+
+  - name: Retool
+    platform: custom
+    careers_url: https://retool.com/careers
+    scan_query: 'site:retool.com/careers "Product Manager"'
+    enabled: true
+
+  - name: Stripe
+    platform: custom
+    careers_url: https://stripe.com/jobs
+    scan_query: 'site:stripe.com/jobs "Product Manager" AI OR "platform" OR "billing"'
+    notes: "You built Stripe webhook integrations for Roominary."
+    enabled: true
+
+  - name: Figma
+    platform: greenhouse
+    slug: figma
+    careers_url: https://job-boards.greenhouse.io/figma
+    notes: "Design platform + AI features."
+    enabled: true
+
+  - name: GitHub
+    platform: custom
+    careers_url: https://www.github.careers/careers-home/jobs
+    scan_query: 'site:github.careers/careers-home "Product Manager" AI OR "Copilot"'
+    notes: "GitHub Copilot. Microsoft subsidiary. Dedicated careers portal at github.careers."
+    enabled: true
+
+  - name: Supabase
+    platform: ashby
+    slug: supabase
+    careers_url: https://jobs.ashbyhq.com/supabase
+    notes: "Open-source Firebase alternative. You use Supabase for Roominary auth."
+    enabled: true
+
+  - name: LangChain
+    platform: ashby
+    slug: langchain
+    careers_url: https://jobs.ashbyhq.com/langchain
+    notes: "LangChain/LangSmith. AI agent framework."
+    enabled: true
+
+  - name: Glean
+    platform: greenhouse
+    slug: gleanwork
+    careers_url: https://job-boards.greenhouse.io/gleanwork
+    notes: "Enterprise AI search."
+    enabled: true
+
+  - name: Airtable
+    platform: greenhouse
+    slug: airtable
+    careers_url: https://job-boards.greenhouse.io/airtable
+    notes: "No-code + AI platform."
+    enabled: true
+
+  - name: Clay Labs
+    platform: ashby
+    slug: claylabs
+    careers_url: https://jobs.ashbyhq.com/claylabs
+    notes: "AI-native GTM platform."
+    enabled: true
+
+  - name: Pinecone
+    platform: ashby
+    slug: pinecone
+    careers_url: https://jobs.ashbyhq.com/pinecone
+    notes: "Vector database."
+    enabled: true
+
+  - name: Arize AI
+    platform: greenhouse
+    slug: arizeai
+    careers_url: https://job-boards.greenhouse.io/arizeai
+    notes: "LLMOps / AI observability."
+    enabled: true
+
+  - name: Hightouch
+    platform: greenhouse
+    slug: hightouch
+    careers_url: https://job-boards.greenhouse.io/hightouch
+    notes: "Data activation + AI."
+    enabled: true
+
+  - name: WorkOS
+    platform: ashby
+    slug: workos
+    careers_url: https://jobs.ashbyhq.com/workos
+    notes: "Enterprise auth APIs."
+    enabled: true
+
+  - name: Ada
+    platform: greenhouse
+    slug: ada18
+    careers_url: https://job-boards.greenhouse.io/ada18
+    notes: "Customer service AI agents. Toronto. Greenhouse slug: ada18 (12 jobs as of 2026-04-28)."
+    enabled: true
+
+  - name: Tinybird
+    platform: lever
+    slug: tinybird
+    careers_url: https://jobs.lever.co/tinybird
+    notes: "Real-time analytics API platform. Madrid + remote. Lever slug: tinybird (2 jobs as of 2026-04-28)."
+    enabled: true
+
+  - name: Clarity AI
+    platform: greenhouse
+    slug: clarityai
+    careers_url: https://job-boards.eu.greenhouse.io/clarityai
+    notes: "Sustainability/ESG analytics. Public board on EU subdomain, but standard boards-api.greenhouse.io serves the data (8 jobs as of 2026-04-28)."
+    enabled: true
+
+  # ============================================================
+  # BIG TECH
+  # ============================================================
+
+  - name: Google
+    platform: custom
+    careers_url: https://careers.google.com
+    scan_query: 'site:careers.google.com "Product Manager" AI OR ML OR "Gemini" OR "DeepMind"'
+    notes: "Gemini, DeepMind, Cloud AI."
+    enabled: true
+
+  - name: Meta
+    platform: custom
+    careers_url: https://www.metacareers.com
+    scan_query: 'site:metacareers.com "Product Manager" AI OR ML OR "generative" OR "Llama"'
+    notes: "Llama, Instagram, WhatsApp, Messenger."
+    enabled: true
+
+  - name: Apple
+    platform: custom
+    careers_url: https://jobs.apple.com
+    scan_query: 'site:jobs.apple.com "Product Manager" AI OR ML OR "machine learning" OR "Siri"'
+    notes: "Apple Intelligence, Siri, on-device ML."
+    enabled: true
+
+  - name: Microsoft
+    platform: custom
+    careers_url: https://careers.microsoft.com
+    scan_query: 'site:careers.microsoft.com "Product Manager" AI OR "Copilot" OR "Azure AI" OR ML'
+    notes: "Copilot, Azure AI, GitHub."
+    enabled: true
+
+  - name: Amazon
+    platform: custom
+    careers_url: https://amazon.jobs
+    scan_query: 'site:amazon.jobs "Product Manager" AI OR "Bedrock" OR "Alexa" OR ML'
+    notes: "AWS Bedrock, Alexa, Prime Video."
+    enabled: true
+
+  - name: Salesforce
+    platform: custom
+    careers_url: https://careers.salesforce.com
+    scan_query: 'site:careers.salesforce.com "Product Manager" AI OR "Agentforce" OR "Einstein"'
+    notes: "Agentforce AI agents platform."
+    enabled: true
+
+  - name: Nvidia
+    platform: custom
+    careers_url: https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+    scan_query: 'site:nvidia.wd5.myworkdayjobs.com "Product Manager" AI OR ML OR "generative" OR "inference"'
+    notes: "GPU, CUDA, AI inference, Omniverse."
+    enabled: true
+
+  - name: X (Twitter)
+    platform: custom
+    careers_url: https://careers.x.com
+    scan_query: 'site:careers.x.com "Product Manager" AI OR ML OR "Grok"'
+    notes: "Grok AI, xAI integration, notifications/feed."
+    enabled: true
+
+  - name: Palantir
+    platform: lever
+    slug: palantir
+    careers_url: https://jobs.lever.co/palantir
+    notes: "AIP, Foundry, Gotham."
+    enabled: true
+
+  - name: Weights & Biases
+    platform: custom
+    careers_url: https://wandb.ai/company/careers
+    scan_query: 'site:wandb.ai "Product Manager" OR "careers"'
+    notes: "Acquired by CoreWeave (2025). W&B jobs now surface through CoreWeave's Greenhouse board — see CoreWeave entry below. Standalone Lever board gone. Disabled to avoid double-fetching the same jobs."
+    enabled: false
+
+  - name: CoreWeave
+    platform: greenhouse
+    slug: coreweave
+    careers_url: https://job-boards.greenhouse.io/coreweave
+    notes: "GPU cloud for AI training/inference. Acquired Weights & Biases (2025) — board includes W&B-tagged roles. 243 jobs as of 2026-04-28."
+    enabled: true
+
+  # ============================================================
+  # AUTOMATION / WORKFLOW PLATFORMS
+  # ============================================================
+
+  - name: n8n
+    platform: ashby
+    slug: n8n
+    careers_url: https://jobs.ashbyhq.com/n8n
+    notes: "Workflow automation. You run agents on n8n-style infra."
+    enabled: true
+
+  - name: Zapier
+    platform: ashby
+    slug: zapier
+    careers_url: https://jobs.ashbyhq.com/zapier
+    notes: "Remote-first. Automation platform leader."
+    enabled: true
+
+  - name: Make.com (Celonis)
+    platform: custom
+    careers_url: https://www.make.com/en/careers
+    scan_query: 'site:make.com/en/careers "Product Manager"'
+    notes: "Celonis subsidiary. Automation platform."
+    enabled: true
+
+  # ============================================================
+  # MEDIA & ENTERTAINMENT
+  # ============================================================
+
+  - name: Disney
+    platform: custom
+    careers_url: https://jobs.disneycareers.com
+    scan_query: 'site:jobs.disneycareers.com "Product Manager" OR "Principal Product Manager"'
+    notes: "Former employer. Disney+, ESPN+, Hulu. Deep institutional knowledge."
+    enabled: true
+
+  - name: Netflix
+    platform: custom
+    careers_url: https://explore.jobs.netflix.net/careers
+    scan_query: 'site:explore.jobs.netflix.net "Product Manager"'
+    notes: "Streaming, personalization, ML at scale. Updated URL (jobs.netflix.com not indexed)."
+    enabled: true
+
+  - name: CNN / Warner Bros Discovery
+    platform: custom
+    careers_url: https://careers.wbd.com
+    scan_query: 'site:careers.wbd.com "Product Manager" AI OR "platform" OR "messaging" OR "notifications"'
+    notes: "CNN, HBO Max, Discovery+."
+    enabled: true
+
+  - name: NBC Universal
+    platform: custom
+    careers_url: https://www.nbcunicareers.com/find-a-job?aoi=7644
+    scan_query: 'site:nbcunicareers.com/find-a-job "Product Manager" AI OR "platform" OR "Peacock"'
+    notes: "Peacock, NBC Sports. aoi=7644 filter scopes to Technology area."
+    enabled: true
+
+  - name: Spotify
+    platform: lever
+    slug: spotify
+    careers_url: https://jobs.lever.co/spotify
+    notes: "Audio platform, large ML/personalization org. NYC office."
+    enabled: true
+
+  # ============================================================
+  # SPORTS & SPORTS TECH
+  # ============================================================
+
+  - name: MLB (Major League Baseball)
+    platform: custom
+    careers_url: https://www.mlb.com/careers/opportunities
+    scan_query: 'site:mlb.com/careers/opportunities "Product Manager"'
+    notes: "MLB.tv, At Bat, Statcast. Opportunities listing page."
+    enabled: true
+
+  - name: NFL (National Football League)
+    platform: custom
+    careers_url: https://www.nfl.com/careers
+    scan_query: '"National Football League" OR "NFL" "Product Manager" OR "technology"'
+    notes: "NFL+, digital products."
+    enabled: true
+
+  - name: NBA (National Basketball Association)
+    platform: custom
+    careers_url: https://careers.nba.com
+    scan_query: '"NBA" "Product Manager" OR "technology" OR "digital"'
+    notes: "NBA App, League Pass."
+    enabled: true
+
+  - name: Fanatics
+    platform: custom
+    careers_url: https://www.fanaticsinc.com/careers
+    scan_query: 'site:fanaticsinc.com "Product Manager"'
+    notes: "Sports commerce, collectibles, betting. Left Lever."
+    enabled: true
+
+  - name: New York Yankees
+    platform: custom
+    careers_url: https://www.mlb.com/yankees/team/jobs
+    scan_query: '"New York Yankees" "Product Manager" OR "technology" OR "digital" OR "engineering"'
+    notes: "YES Network, digital products."
+    enabled: true
+
+  # ============================================================
+  # MESSAGING / NOTIFICATIONS / COMMS PLATFORMS
+  # ============================================================
+
+  - name: Twilio
+    platform: custom
+    careers_url: https://www.twilio.com/en-us/company/jobs
+    scan_query: 'site:twilio.com/company/jobs "Product Manager" AI OR "messaging" OR "notifications"'
+    notes: "Messaging/voice infrastructure. Direct competitor space."
+    enabled: true
+
+  - name: Braze
+    platform: greenhouse
+    slug: braze
+    careers_url: https://job-boards.greenhouse.io/braze
+    notes: "Customer engagement platform. NYC. Direct competitor to OneSignal."
+    enabled: true
+
+  - name: Iterable
+    platform: greenhouse
+    slug: iterable
+    careers_url: https://job-boards.greenhouse.io/iterable
+    notes: "Cross-channel messaging platform."
+    enabled: true
+
+  - name: Customer.io
+    platform: custom
+    careers_url: https://jobs.ashbyhq.com/customerio
+    scan_query: 'site:jobs.ashbyhq.com/customerio "Product Manager"'
+    notes: "Messaging automation. Remote. Ashby page exists but API disabled."
+    enabled: true
+
+  - name: Intercom
+    platform: greenhouse
+    slug: intercom
+    careers_url: https://job-boards.greenhouse.io/intercom
+    notes: "AI-first customer messaging. Fin AI agent."
+    enabled: true
+
+  # ============================================================
+  # CONSUMER / MARKETPLACE / DATING / TRAVEL
+  # ============================================================
+
+  - name: Hinge (Match Group)
+    platform: lever
+    slug: matchgroup
+    careers_url: https://jobs.lever.co/matchgroup
+    notes: "Match Group subsidiary. NYC. ML-driven matching. Hinge-specific board gone — using parent (Match Group) Lever feed."
+    enabled: true
+
+  - name: Hopper
+    platform: custom
+    careers_url: https://www.hopper.com/careers
+    scan_query: 'site:hopper.com/careers "Product Manager"'
+    notes: "AI-powered travel booking. Heavy ML for pricing. Left Greenhouse."
+    enabled: true
+
+  # ============================================================
+  # FINANCIAL SERVICES & FINTECH
+  # ============================================================
+
+  - name: American Express
+    platform: custom
+    careers_url: "https://careers.americanexpress.com/en/sites/CX_1/jobs?intlink=us-amex-career-en-us-technology-explore-jobs&lastSelectedFacet=AttributeChar6&mode=location&selectedFlexFieldsFacets=%22AttributeChar6%7CProduct%22"
+    scan_query: 'site:careers.americanexpress.com "Product Manager" AI OR "platform" OR "machine learning"'
+    notes: "Oracle HCM Cloud careers portal (sites/CX_1). URL pre-filtered to Product category. NYC HQ. Heavy AI/ML investment in fraud detection, personalization, rewards engine."
+    enabled: true
+

@@ -1,0 +1,104 @@
+.tabs {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 var(--s-3);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  height: 48px;
+  flex-shrink: 0;
+  /* Right-edge scroll shadow: if tabs overflow (narrow sidebars + many
+   * active filters), this gradient fades in against the scrollable
+   * content so the user sees there's more to the right. Same pattern
+   * as `.prose-table-scroll` in globals.css, scoped locally so it
+   * disappears in focus mode via the stacked-layout override below. */
+  background:
+    linear-gradient(to left, var(--paper), var(--paper)) right center / 14px 100% no-repeat,
+    linear-gradient(to left, color-mix(in oklch, var(--ink) 12%, transparent), transparent) right center / 22px 100% no-repeat;
+  background-attachment: local, scroll;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+/* Focus mode: stack tabs vertically inside the rail. Compact rows so
+ * the list below gets most of the sidebar's vertical space. */
+:root[data-focus='true'] .tabs {
+  flex-direction: column;
+  align-items: stretch;
+  height: auto;
+  padding: var(--s-1) var(--s-1);
+  overflow: visible;
+  border-bottom: 1px solid var(--rule);
+  gap: 0;
+  /* Disable the horizontal-mode scroll shadow in stacked layout. */
+  background: none;
+}
+:root[data-focus='true'] .tabs__item {
+  justify-content: space-between;
+  padding: 2px var(--s-2);
+  border-radius: var(--r-1);
+  height: 20px;
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+}
+:root[data-focus='true'] .tabs__item:hover {
+  background: var(--paper-raised);
+}
+:root[data-focus='true'] .tabs__item[data-active='true'] {
+  background: color-mix(in oklch, var(--paper-raised) 70%, var(--phosphor-dim) 30%);
+}
+/* The underline bar transforms to a left rail in focus mode */
+:root[data-focus='true'] .tabs__bar {
+  display: none;
+}
+
+.tabs__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 var(--s-2);
+  color: var(--ink-muted);
+  border: none;
+  background: transparent;
+  font-size: var(--t-sm);
+  letter-spacing: 0.02em;
+  font-family: var(--font-prose);
+  font-weight: 400;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--d-fast) var(--ease-out-quart);
+}
+.tabs__item:hover { color: var(--ink-soft); }
+.tabs__item[data-active='true'] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.tabs__item-count {
+  font-size: 10.5px;
+  color: var(--ink-whisper);
+  padding-top: 2px;
+  margin-left: 4px;
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+}
+.tabs__item[data-active='true'] .tabs__item-count {
+  color: var(--phosphor);
+}
+
+.tabs__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--phosphor);
+  border-radius: 1px 1px 0 0;
+  transition:
+    transform var(--d-med) var(--ease-out-quint),
+    width var(--d-med) var(--ease-out-quint);
+  pointer-events: none;
+}
