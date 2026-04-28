@@ -14,6 +14,7 @@ batch/logs/*
 !batch/logs/.gitkeep
 batch/batch-state.tsv
 batch/batch-input.tsv
+batch/*.log
 batch/tracker-additions/*.tsv
 !batch/tracker-additions/.gitkeep
 jds/*
@@ -32,6 +33,7 @@ modes/_profile.md
 
 # Generated
 .resolved-prompt-*
+test-write-*.txt
 node_modules/
 web-dashboard/node_modules/
 web-dashboard/dist/
