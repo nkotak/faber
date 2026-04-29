@@ -94,8 +94,13 @@ const PIPELINE_PATH = join(ROOT, 'data', 'pipeline.md');
 const CACHE_PATH = join(ROOT, 'data', 'liveness-cache.tsv');
 const REPORTS_DIR = join(ROOT, 'reports');
 
-// Statuses we never re-check (active conversations + already-terminal)
+// Statuses we never re-check. These represent rows where the user has
+// already acted (Applied, Interview, Offer, Rejected, Responded), the row
+// was already terminated (Discarded, Skip), or the user's signal is too
+// strong to overwrite. Applied is the load-bearing entry — flipping an
+// Applied row to Discarded just because a URL went 404 is destructive.
 const TERMINAL_STATUSES = new Set([
+  'applied',
   'rejected',
   'offer',
   'interview',

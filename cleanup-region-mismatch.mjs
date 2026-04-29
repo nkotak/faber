@@ -74,7 +74,11 @@ const ALIASES_PATH = join(ROOT, 'config', 'location-aliases.json');
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
+// Statuses we never re-classify. Applied is the load-bearing protection:
+// the user has signalled commitment to the role; a region filter change
+// shouldn't sweep that decision away. Same rule as cleanup-dead-jobs.mjs.
 const TERMINAL_STATUSES = new Set([
+  'applied',
   'rejected',
   'offer',
   'interview',
