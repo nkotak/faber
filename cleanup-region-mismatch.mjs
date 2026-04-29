@@ -155,14 +155,23 @@ async function buildAtsLocationCache(urls) {
         const raw = await fetchAtsBoard(g);
         for (const job of raw) {
           // Each platform exposes the URL under a different key. Locations
-          // also live in different shapes — normalize both.
+          // also live in different shapes — normalize both. Note: this used
+          // to use a `??` chain, but `??` only short-circuits on null/
+          // undefined — an empty string from the type-narrowing branch ate
+          // the categories fallback, breaking Lever (where the location
+          // lives in `categories.location`) for every Mistral/Spotify/etc
+          // row.
           const jobUrl = job.absolute_url ?? job.jobUrl ?? job.hostedUrl ?? '';
-          const loc =
-            job.location?.name ??
-            (typeof job.location === 'string' ? job.location : '') ??
-            job.categories?.location ??
-            (job.categories?.allLocations ?? []).join(', ') ??
-            '';
+          let loc = '';
+          if (job.location?.name) {
+            loc = job.location.name;                      // Greenhouse
+          } else if (typeof job.location === 'string' && job.location) {
+            loc = job.location;                           // Ashby
+          } else if (job.categories?.location) {
+            loc = job.categories.location;                // Lever (primary)
+          } else if (Array.isArray(job.categories?.allLocations) && job.categories.allLocations.length > 0) {
+            loc = job.categories.allLocations.join(', '); // Lever (multi)
+          }
           if (jobUrl && loc) cache.set(jobUrl, String(loc).trim());
         }
       } catch (err) {
