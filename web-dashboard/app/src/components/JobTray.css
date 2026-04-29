@@ -31,9 +31,8 @@
 
 .chip {
   display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  padding: 6px var(--s-3);
+  flex-direction: column;
+  align-items: stretch;
   border-radius: 999px;
   background: var(--paper);
   border: 1px solid var(--rule);
@@ -42,6 +41,14 @@
   white-space: nowrap;
   animation: chipIn var(--d-med) var(--ease-out-quint);
   transform-origin: 0 50%;
+  position: relative;
+  overflow: hidden; /* clip the hairline progress bar to the pill's rounded corners */
+}
+.chip__row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px var(--s-3);
 }
 @keyframes chipIn {
   from { transform: translateX(-12px) scale(0.96); opacity: 0; }
@@ -113,4 +120,91 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .chip__spin { animation: none; }
+}
+
+/* ── Awaiting-apply state ──────────────────────────────────────────────────
+ * When a cleanup-* dry-run succeeds with proposed changes (exit 2), the chip
+ * escalates to full --phosphor accent — the only chip in the tray that
+ * earns this visual weight, because it's the one with an action waiting.
+ */
+.chip--awaiting-apply {
+  border-color: var(--phosphor);
+  background: color-mix(in srgb, var(--phosphor) 4%, var(--paper));
+}
+.chip__glyph--awaiting {
+  color: var(--phosphor);
+}
+.chip__apply {
+  padding: 2px 12px;
+  border: 1px solid var(--phosphor);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  color: var(--phosphor);
+  background: var(--paper);
+  text-transform: lowercase;
+  cursor: pointer;
+  transition:
+    background var(--d-fast) var(--ease-out-quart),
+    color var(--d-fast) var(--ease-out-quart);
+}
+.chip__apply:hover:not(:disabled) {
+  background: var(--phosphor);
+  color: var(--paper);
+}
+.chip__apply:focus-visible {
+  outline: 2px solid var(--phosphor);
+  outline-offset: 2px;
+}
+.chip__apply:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.chip__handed-off {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.04em;
+  /* Action has moved to a fresh chip — fade this label so the new in-flight
+   * chip wins the user's eye. Full --phosphor would compete. */
+  color: var(--phosphor-dim);
+  padding: 2px 6px;
+}
+
+/* ── Progress hairline ─────────────────────────────────────────────────────
+ * 1-pixel bar flush to the bottom edge of the chip, clipped by the chip's
+ * own rounded overflow:hidden. Determinate mode shows a width that grows as
+ * [N/T] climbs; indeterminate sweep is for the early/tier-1 phase before any
+ * fraction has emitted. Phosphor on a faint phosphor track.
+ */
+.chip__progressbar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--phosphor) 18%, transparent);
+}
+.chip__progressbar-fill {
+  height: 100%;
+  background: var(--phosphor);
+  width: 0;
+  transition: width 200ms var(--ease-out-quart);
+}
+.chip__progressbar--indeterminate .chip__progressbar-fill {
+  width: 30%;
+  animation: chipBarSweep 1.4s ease-in-out infinite;
+}
+@keyframes chipBarSweep {
+  0%   { transform: translateX(-110%); }
+  60%  { transform: translateX(330%); }
+  100% { transform: translateX(330%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip__progressbar--indeterminate .chip__progressbar-fill {
+    animation: none;
+    width: 25%;
+    background: var(--phosphor-dim);
+  }
+  .chip__progressbar-fill { transition: none; }
 }

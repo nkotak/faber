@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { parseYaml } from './lib/yaml-mini.mjs';
 import { loadAliases, matchesFilter } from './lib/location-filter.mjs';
+import { classifyAtsUrl, fetchAtsBoard } from './lib/ats-clients.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -113,16 +114,75 @@ function loadFilterContext() {
 
 // ---------------------------------------------------------------------------
 // Pipeline cleanup
+//
+// Rows in pipeline.md have a 4th-column `location` only if they were scanned
+// AFTER the location-filter rollout. Older rows have only `URL | Company |
+// Role`. To classify those legacy rows, we fetch each ATS board once
+// (memoized) and look up the URL's location in the board's response. Non-ATS
+// legacy rows (Disney, Workday, etc.) remain unclassifiable and are reported
+// as such — applying Playwright per row is too expensive for a region sweep.
 // ---------------------------------------------------------------------------
 
+/**
+ * Build a Map<url, location-string> by fetching each unique ATS board once.
+ * Memoized: 1 HTTP call per {platform, slug} regardless of how many rows
+ * reference jobs in that board.
+ */
+async function buildAtsLocationCache(urls) {
+  const cache = new Map();
+  const groups = new Map(); // key 'platform:slug' → { platform, slug }
+  for (const url of urls) {
+    const cls = classifyAtsUrl(url);
+    if (!cls) continue;
+    const key = `${cls.platform}:${cls.slug}`;
+    if (!groups.has(key)) groups.set(key, { platform: cls.platform, slug: cls.slug });
+  }
+  if (groups.size === 0) return cache;
+
+  await Promise.all(
+    [...groups.values()].map(async (g) => {
+      try {
+        const raw = await fetchAtsBoard(g);
+        for (const job of raw) {
+          // Each platform exposes the URL under a different key. Locations
+          // also live in different shapes — normalize both.
+          const jobUrl = job.absolute_url ?? job.jobUrl ?? job.hostedUrl ?? '';
+          const loc =
+            job.location?.name ??
+            (typeof job.location === 'string' ? job.location : '') ??
+            job.categories?.location ??
+            (job.categories?.allLocations ?? []).join(', ') ??
+            '';
+          if (jobUrl && loc) cache.set(jobUrl, String(loc).trim());
+        }
+      } catch (err) {
+        // Board fetch failed — those URLs remain unclassifiable. Continue.
+        if (verbose) console.error(`  ats backfill ${g.platform}/${g.slug} failed: ${err.message}`);
+      }
+    }),
+  );
+  return cache;
+}
+
 async function cleanupPipeline(filterCtx) {
-  if (!existsSync(PIPELINE_PATH)) return { mismatches: [], rewritten: false };
+  if (!existsSync(PIPELINE_PATH)) return { mismatches: [], rewritten: false, unclassified: 0 };
 
   const text = await readFile(PIPELINE_PATH, 'utf-8');
   const lines = text.split('\n');
   const mismatches = [];
   const newLines = [];
 
+  // Pass 1: collect every pending URL so we can prefetch ATS boards in
+  // parallel before the per-row classification loop.
+  const pendingUrls = [];
+  for (const line of lines) {
+    const m = line.match(/^- \[ \]\s+(\S+)\s*\|/);
+    if (m) pendingUrls.push(m[1]);
+  }
+  const atsLocCache = await buildAtsLocationCache(pendingUrls);
+  if (verbose) console.error(`  ats location cache: ${atsLocCache.size} URLs resolved`);
+
+  let unclassified = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const m = line.match(/^- \[ \]\s+(\S+)\s*\|\s*(.+)$/);
@@ -135,12 +195,15 @@ async function cleanupPipeline(filterCtx) {
     const fields = m[2].split('|').map((s) => s.trim());
     const company = fields[0] || '';
     const title = fields[1] || '';
-    const location = fields[2] || '';
+    let location = fields[2] || '';
+
+    // Backfill from the ATS board for legacy rows that pre-date the 4th
+    // column. Non-ATS URLs (Disney, Workday, etc.) won't appear in the cache.
+    if (!location) location = atsLocCache.get(url) ?? '';
 
     if (!location) {
-      // No location field on this row (older entry pre-dating the schema extension).
-      // Can't classify — keep it.
-      newLines.push(line);
+      unclassified++;
+      newLines.push(line); // can't classify — keep it
       continue;
     }
 
@@ -154,7 +217,7 @@ async function cleanupPipeline(filterCtx) {
   }
 
   if (mismatches.length === 0 || dryRun) {
-    return { mismatches, rewritten: false };
+    return { mismatches, rewritten: false, unclassified };
   }
 
   // Append a "Discarded — region" section preserving the audit trail
@@ -168,7 +231,7 @@ async function cleanupPipeline(filterCtx) {
 
   await copyFile(PIPELINE_PATH, PIPELINE_PATH + '.bak');
   await writeFile(PIPELINE_PATH, output, 'utf-8');
-  return { mismatches, rewritten: true };
+  return { mismatches, rewritten: true, unclassified };
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +320,9 @@ async function main() {
 
   console.error('\nResults:');
   console.error(`  pipeline.md: ${pipelineResult.mismatches.length} mismatches ${dryRun ? '(would remove)' : (pipelineResult.rewritten ? 'removed → "Discarded — region" section' : '')}`);
+  if (pipelineResult.unclassified > 0) {
+    console.error(`  pipeline.md: ${pipelineResult.unclassified} row(s) skipped — no location and not on a known ATS board (run a fresh /faber scan to populate)`);
+  }
   console.error(`  applications.md: ${appsResult.mismatches.length} mismatches ${dryRun ? '(would mark Discarded)' : (appsResult.rewritten ? 'marked Discarded' : '')}`);
 
   if (!dryRun) {
