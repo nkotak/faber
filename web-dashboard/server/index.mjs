@@ -23,6 +23,8 @@ import { JobManager } from './jobs/manager.mjs';
 import { registerApplicationsRoutes } from './routes/applications.mjs';
 import { registerReportsRoutes } from './routes/reports.mjs';
 import { registerJobsRoutes } from './routes/jobs.mjs';
+import { registerCleanupRoutes } from './routes/cleanup.mjs';
+import { registerInboxRoutes } from './routes/inbox.mjs';
 import { registerEventsRoute } from './routes/events.mjs';
 import { registerOnboardingRoutes } from './onboarding/index.mjs';
 import { cleanupStaleTemp } from './onboarding/cleanup.mjs';
@@ -79,6 +81,8 @@ async function buildServer() {
   registerApplicationsRoutes(app, { careerOpsRoot, state });
   registerReportsRoutes(app, { careerOpsRoot });
   registerJobsRoutes(app, { careerOpsRoot, jobs });
+  registerCleanupRoutes(app, { careerOpsRoot, jobs });
+  registerInboxRoutes(app, { careerOpsRoot });
   registerOnboardingRoutes(app, { careerOpsRoot, jobs });
   registerEventsRoute(app, { fileEmitter, jobs });
 

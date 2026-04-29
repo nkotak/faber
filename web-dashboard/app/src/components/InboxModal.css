@@ -1,0 +1,158 @@
+/* InboxModal — Cmd+J quick add a URL.
+ *
+ * Visually echoes the command palette (same backdrop + shape) so muscle memory
+ * carries across. Compact form with a single URL input, autofocus, and an
+ * inline status line that doesn't shift layout when state changes.
+ */
+
+.inbox-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklch, var(--paper) 70%, transparent);
+  backdrop-filter: blur(6px) saturate(120%);
+  z-index: 60;
+  display: grid;
+  place-content: start center;
+  padding-top: clamp(60px, 16vh, 140px);
+  animation: inboxFadeIn 180ms var(--ease-out-quart);
+}
+@keyframes inboxFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inbox-modal__backdrop { animation: none; }
+}
+
+.inbox-modal {
+  width: min(560px, calc(100vw - var(--s-6)));
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-mid);
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  animation: inboxIn 220ms var(--ease-out-quint);
+}
+@keyframes inboxIn {
+  from { transform: translateY(-6px) scale(0.985); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inbox-modal { animation: none; }
+}
+
+.inbox-modal__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--s-2);
+}
+.inbox-modal__title {
+  font-family: var(--font-prose);
+  font-size: var(--t-md);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+
+.inbox-modal__help {
+  font-family: var(--font-prose);
+  font-size: var(--t-sm);
+  color: var(--ink-muted);
+  margin: 0 0 var(--s-3);
+  line-height: 1.4;
+}
+.inbox-modal__help code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--paper-sunken);
+  padding: 0 4px;
+  border-radius: var(--r-1);
+}
+
+.inbox-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.inbox-modal__input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: var(--t-sm);
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  color: var(--ink);
+  transition:
+    border-color var(--d-fast) var(--ease-out-quart),
+    background var(--d-fast) var(--ease-out-quart);
+}
+.inbox-modal__input:focus {
+  outline: none;
+  border-color: var(--phosphor-dim);
+  background: var(--paper);
+}
+.inbox-modal__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inbox-modal__feedback {
+  /* Reserve a fixed line so showing/clearing the message doesn't reflow. */
+  min-height: calc(var(--t-xs) * 1.4 + 4px);
+  display: flex;
+  align-items: center;
+}
+.inbox-modal__feedback-line {
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+}
+.inbox-modal__feedback-line--hint {
+  color: color-mix(in srgb, var(--ink-muted) 70%, var(--paper));
+}
+.inbox-modal__feedback-line--ok {
+  color: var(--verdant);
+}
+.inbox-modal__feedback-line--err {
+  color: var(--ember);
+}
+
+.inbox-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+.inbox-modal__btn {
+  padding: 8px 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+  background: var(--paper);
+  transition:
+    background var(--d-fast) var(--ease-out-quart),
+    color var(--d-fast) var(--ease-out-quart),
+    border-color var(--d-fast) var(--ease-out-quart);
+}
+.inbox-modal__btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.inbox-modal__btn--primary {
+  color: var(--phosphor);
+  border-color: var(--phosphor-dim);
+}
+.inbox-modal__btn--primary:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--paper) 78%, var(--phosphor) 22%);
+  color: var(--phosphor);
+  border-color: var(--phosphor);
+}
+.inbox-modal__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

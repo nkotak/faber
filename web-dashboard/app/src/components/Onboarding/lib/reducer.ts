@@ -58,6 +58,7 @@ export const INITIAL_STATE: OnboardingState = {
     positiveKeywords: [],
     negativeKeywords: [],
     companyOverrides: {},
+    customCompanies: [],
   },
   escNoticeUntil: 0,
 };

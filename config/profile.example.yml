@@ -69,3 +69,43 @@ location:
   visa_status: "No sponsorship needed"
   # For remote roles outside your country:
   # onsite_availability: "1 week/month in any city"
+
+# -- Location filter (optional, default off) --
+# When enabled, /faber scan rejects jobs whose location doesn't match. Default
+# behavior with this block missing or `enabled: false`: every job passes the
+# filter, identical to the previous behavior.
+#
+# Filter is strictly subtractive: it can only reject. Scoring still happens at
+# evaluation time per modes/_profile.md location tiers.
+#
+# Location strings are normalized via config/location-aliases.json + your
+# custom_aliases below (e.g., "NYC" matches "New York City", "Manhattan",
+# "Brooklyn", etc.). Multi-location postings ("San Francisco | NYC | Remote")
+# pass if ANY piece matches an allow rule.
+#
+# Uncomment and customize:
+#
+# location_filter:
+#   enabled: true
+#   remote:
+#     enabled: true                  # accept "Remote" jobs at all?
+#     accept_regions:
+#       - "us"                       # allow "Remote — US" / "Remote, US"
+#       - "americas"                 # allow "Remote — Americas"
+#       - "global"                   # allow "Remote — Worldwide"
+#     bare_remote_policy: "allow"    # allow|deny|unknown — what to do with bare "Remote"
+#   hybrid:
+#     locations:
+#       - "NYC"                      # auto-aliased: New York City, Manhattan, Brooklyn...
+#       - "NJ"                       # auto-aliased: New Jersey, Jersey City, Newark...
+#   onsite:
+#     locations: []                  # empty = no on-site jobs accepted
+#   custom_aliases:
+#     # Add your own canonical-name → variant mappings. Merged on top of
+#     # config/location-aliases.json. Useful when you want a custom region
+#     # like "Tri-State" to map to a specific city set.
+#     # "Tri-State":
+#     #   - "New York"
+#     #   - "Newark"
+#     #   - "Stamford"
+#   unknown_policy: "ask"            # allow|deny|ask — for empty/unparseable location strings

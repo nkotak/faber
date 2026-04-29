@@ -103,6 +103,9 @@ function toProfileMdServerPayload(d: ProfileMdDraft) {
 /**
  * Frontend PortalsConfig is camelCase + a Record for company toggles.
  * Backend portalsSchema is snake_case + an array of {name, enabled}.
+ *
+ * customCompanies is the parallel list of user-added entries with full
+ * metadata; it round-trips to the `custom_companies` YAML block.
  */
 function toPortalsServerPayload(p: PortalsConfig) {
   return {
@@ -114,6 +117,14 @@ function toPortalsServerPayload(p: PortalsConfig) {
     companies: Object.entries(p.companyOverrides).map(([name, enabled]) => ({
       name,
       enabled,
+    })),
+    custom_companies: p.customCompanies.map((c) => ({
+      name: c.name,
+      platform: c.platform,
+      slug: c.slug ?? '',
+      careers_url: c.careers_url,
+      notes: c.notes ?? '',
+      enabled: c.enabled,
     })),
   };
 }
@@ -150,6 +161,38 @@ export const api = {
 
   cancelJob: (id: string) =>
     jpost<{ ok: boolean }>(`/api/jobs/${encodeURIComponent(id)}/cancel`, {}),
+
+  // ------------------------------------------------------------------
+  // Cleanup endpoints. Backed by cleanup-dead-jobs.mjs and
+  // cleanup-region-mismatch.mjs respectively. Both default to dry-run; pass
+  // `dryRun: false` to actually mutate applications.md / pipeline.md.
+  // Progress streams via the same SSE channel as other jobs (kind:
+  // 'cleanup-dead' or 'cleanup-region').
+  // ------------------------------------------------------------------
+
+  /** POST /api/cleanup/dead — two-strikes liveness sweep. */
+  startCleanupDead: (opts: { dryRun?: boolean; limit?: number } = {}) =>
+    jpost<Job>('/api/cleanup/dead', {
+      dryRun: opts.dryRun ?? true,
+      ...(opts.limit ? { limit: opts.limit } : {}),
+    }),
+
+  /** POST /api/cleanup/region — drop pipeline + apps that don't match
+   * the current location_filter in config/profile.yml. */
+  startCleanupRegion: (opts: { dryRun?: boolean } = {}) =>
+    jpost<Job>('/api/cleanup/region', {
+      dryRun: opts.dryRun ?? true,
+    }),
+
+  /** GET /api/cleanup/status — { deadRunning, regionRunning } booleans. */
+  cleanupStatus: () =>
+    jget<{ deadRunning: boolean; regionRunning: boolean }>(
+      '/api/cleanup/status',
+    ),
+
+  /** POST /api/inbox/add — append a single URL to data/pipeline.md as Pending. */
+  addInboxUrl: (url: string) =>
+    jpost<{ ok: true; row: string }>('/api/inbox/add', { url }),
 
   // ------------------------------------------------------------------
   // Onboarding endpoints. These exist (or will exist) on the Fastify

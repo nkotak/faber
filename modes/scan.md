@@ -17,7 +17,8 @@ Agent(
 ## Configuration
 
 Read `portals.yml`, which contains:
-- `tracked_companies`: companies with `platform`, `slug`, and `careers_url`
+- `tracked_companies`: companies with `platform`, `slug`, and `careers_url` (the curated template defaults)
+- `custom_companies`: additional user-added companies with the same shape (parallel block; see "your additions" pane in the web dashboard). Iterate them alongside `tracked_companies` for both Level 1 (API fetches in `scan-apis.mjs` already cover both via its parent-key-agnostic parser) and Level 2 (agent-browser walks).
 - `search_queries`: WebSearch queries with `site:` filters (broad discovery)
 - `title_filter`: positive / negative / seniority_boost keywords for title filtering
 
@@ -138,6 +139,17 @@ The levels are additive — all run, results are merged and deduplicated.
    - `seniority_boost` keywords give priority but are not required
    - **Use judgment**: if a title is clearly relevant despite not matching keywords (e.g., "AI Product Engineering Manager"), include it
 
+7.5. **Filter by location** using `location_filter` from `config/profile.yml` (if configured and enabled):
+   - For Level 1 jobs, `scan-apis.mjs` already applies the filter and emits a summary on stderr — no agent action needed.
+   - For Level 2 (`agent-browser`) and Level 3 (`WebSearch`) results, the agent must apply the same rules manually using `lib/location-filter.mjs` semantics:
+     - `allow` matches: a job's location string matches a `hybrid.locations` entry, an `onsite.locations` entry, or a `remote` rule with an accepted region.
+     - `deny` is implicit: anything not matching an allow rule is rejected (and logged as `skipped_location`).
+     - `unknown_policy` controls behavior for empty/unparseable location strings (`allow` / `deny` / `ask`).
+   - Use built-in aliases from `config/location-aliases.json` (e.g., `NYC` ≡ "New York City" ≡ "Manhattan") plus any user-defined `custom_aliases` in `profile.yml`.
+   - Multi-location postings ("San Francisco | NYC | Remote") pass if ANY piece matches an allow rule.
+   - When the filter rejects a job, log it to `scan-history.tsv` with status `skipped_location` and DO NOT add it to `pipeline.md`.
+   - When `location_filter` is missing or `enabled: false`, this step is a no-op (default: every location passes — same as previous behavior).
+
 8. **Deduplicate** against 3 sources:
    - `scan-history.tsv` → exact URL already seen
    - `applications.md` → company + normalized role already evaluated
@@ -163,12 +175,14 @@ The levels are additive — all run, results are merged and deduplicated.
    **Don't stop the entire scan if a single URL fails.** If agent-browser errors (timeout, 403, etc.), mark as `skipped_expired` and continue to the next.
 
 9. **For each new verified offer that passes the filters**:
-   a. Add to `pipeline.md` under the "Pending" section: `- [ ] {url} | {company} | {title}`
-   b. Log in `scan-history.tsv`: `{url}\t{date}\t{query_name}\t{title}\t{company}\tadded`
+   a. Add to `pipeline.md` under the "Pending" section: `- [ ] {url} | {company} | {title} | {location}`
+      The `{location}` field is appended when known. If the source didn't return a location string, omit the trailing ` | {location}` segment — older parsers tolerate the shorter line, and the dashboard renders no location pill.
+   b. Log in `scan-history.tsv`: `{url}\t{date}\t{query_name}\t{title}\t{company}\tadded\t{location}`
 
 10. **Offers filtered out by title**: log in `scan-history.tsv` with status `skipped_title`
 11. **Duplicate offers**: log with status `skipped_dup`
 12. **Expired offers (Level 3)**: log with status `skipped_expired`
+13. **Location-rejected offers**: log with status `skipped_location` (added in 2026-04). The `location` column captures the raw location string for diagnostics.
 
 ## Extracting title and company from WebSearch results
 
@@ -192,12 +206,15 @@ If a URL isn't publicly accessible:
 `data/scan-history.tsv` tracks EVERY URL seen:
 
 ```
-url	first_seen	portal	title	company	status
-https://...	2026-02-10	Ashby — AI PM	PM AI	Acme	added
-https://...	2026-02-10	Greenhouse — SA	Junior Dev	BigCo	skipped_title
-https://...	2026-02-10	Ashby — AI PM	SA AI	OldCo	skipped_dup
-https://...	2026-02-10	WebSearch — AI PM	PM AI	ClosedCo	skipped_expired
+url	first_seen	portal	title	company	status	location
+https://...	2026-02-10	Ashby — AI PM	PM AI	Acme	added	Remote — US
+https://...	2026-02-10	Greenhouse — SA	Junior Dev	BigCo	skipped_title	San Francisco
+https://...	2026-02-10	Ashby — AI PM	SA AI	OldCo	skipped_dup	NYC
+https://...	2026-02-10	WebSearch — AI PM	PM AI	ClosedCo	skipped_expired	(empty)
+https://...	2026-04-28	Lever — Mistral	Sr PM	Mistral AI	skipped_location	Paris, France
 ```
+
+The `location` column was added in 2026-04 alongside the location filter. Existing rows with 6 columns continue to parse; readers should treat the 7th field as optional.
 
 ## Output summary
 

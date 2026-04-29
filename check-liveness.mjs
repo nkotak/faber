@@ -17,7 +17,7 @@
 import { chromium } from 'playwright';
 import { readFile } from 'fs/promises';
 
-const EXPIRED_PATTERNS = [
+export const EXPIRED_PATTERNS = [
   /job (is )?no longer available/i,
   /job.*no longer open/i,           // Greenhouse: "The job you are looking for is no longer open."
   /position has been filled/i,
@@ -35,11 +35,11 @@ const EXPIRED_PATTERNS = [
 ];
 
 // URL patterns that indicate an ATS has redirected away from the job (closed/expired)
-const EXPIRED_URL_PATTERNS = [
+export const EXPIRED_URL_PATTERNS = [
   /[?&]error=true/i,   // Greenhouse redirect on closed jobs
 ];
 
-const APPLY_PATTERNS = [
+export const APPLY_PATTERNS = [
   /\bapply\b/i,          // catches "Apply", "Apply Now", "Apply for this Job"
   /\bsolicitar\b/i,
   /\bbewerben\b/i,
@@ -51,9 +51,9 @@ const APPLY_PATTERNS = [
 ];
 
 // Below this length the page is probably just nav/footer (closed ATS page)
-const MIN_CONTENT_CHARS = 300;
+export const MIN_CONTENT_CHARS = 300;
 
-async function checkUrl(page, url) {
+export async function checkUrl(page, url) {
   try {
     const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
@@ -140,7 +140,10 @@ async function main() {
   if (expired > 0 || uncertain > 0) process.exit(1);
 }
 
-main().catch(err => {
-  console.error('Fatal:', err.message);
-  process.exit(1);
-});
+// Only run main() when invoked directly (not when imported as a module)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(err => {
+    console.error('Fatal:', err.message);
+    process.exit(1);
+  });
+}

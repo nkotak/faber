@@ -1,0 +1,279 @@
+/* CleanupActions.css
+ *
+ * Visual treatment for the queue toolbar buttons + the dry-run/apply modal.
+ * Reuses tokens from styles/tokens.css. Modal sits one z-layer below the
+ * onboarding modal so a stray onboarding open doesn't get hidden behind us.
+ */
+
+/* -------- Toolbar ------------------------------------------------------ */
+
+.cleanup-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.cleanup-actions__label {
+  margin-right: var(--s-1);
+}
+
+.cleanup-actions__btn {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  padding: var(--s-1) var(--s-3);
+  cursor: pointer;
+  transition:
+    color var(--d-fast),
+    border-color var(--d-fast),
+    background var(--d-fast);
+}
+.cleanup-actions__btn:hover {
+  color: var(--phosphor);
+  border-color: var(--phosphor);
+}
+
+/* -------- Modal backdrop + frame --------------------------------------- */
+
+.cleanup-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 65; /* below onboarding (70), above palette (50) and statuspicker (60) */
+  background: color-mix(in srgb, var(--ink) 30%, transparent);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+  animation: cleanup-fade-in var(--d-med) var(--ease-out-quart);
+}
+
+@keyframes cleanup-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cleanup-modal {
+  width: clamp(360px, 56ch, 640px);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-mid);
+  overflow: hidden;
+  animation: cleanup-rise var(--d-med) var(--ease-out-quart);
+}
+
+@keyframes cleanup-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -------- Header ------------------------------------------------------- */
+
+.cleanup-modal__head {
+  position: relative;
+  padding: var(--s-4) var(--s-5) var(--s-2);
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--phosphor) 4%, var(--paper-raised));
+}
+
+.cleanup-modal__title {
+  margin: var(--s-1) 0 0;
+  font-family: var(--font-prose);
+  font-weight: 500;
+  font-size: var(--t-lg);
+  color: var(--ink);
+}
+
+.cleanup-modal__close {
+  position: absolute;
+  top: var(--s-3);
+  right: var(--s-3);
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  background: var(--paper);
+  color: var(--ink-muted);
+  font-size: var(--t-md);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--d-fast), border-color var(--d-fast);
+}
+.cleanup-modal__close:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.cleanup-modal__close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* -------- Help text --------------------------------------------------- */
+
+.cleanup-modal__help {
+  margin: var(--s-3) var(--s-5) 0;
+  font-family: var(--font-prose);
+  font-size: var(--t-sm);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* -------- Body --------------------------------------------------------- */
+
+.cleanup-modal__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--s-4) var(--s-5);
+  display: grid;
+  gap: var(--s-3);
+}
+
+.cleanup-modal__stage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  align-self: start;
+}
+
+.cleanup-modal__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rule-strong);
+  flex-shrink: 0;
+}
+.cleanup-modal__dot--running {
+  background: var(--phosphor);
+  animation: cleanup-pulse 1.4s ease-in-out infinite;
+}
+.cleanup-modal__dot--review {
+  background: var(--azure);
+}
+.cleanup-modal__dot--ok {
+  background: var(--verdant);
+}
+.cleanup-modal__dot--fail {
+  background: var(--ember);
+}
+
+@keyframes cleanup-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.85); }
+}
+
+.cleanup-modal__stage-text {
+  font-size: var(--t-xs);
+  color: var(--ink-soft);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.cleanup-modal__progress {
+  margin: 0;
+  padding: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.cleanup-modal__hint {
+  margin: 0;
+  font-family: var(--font-prose);
+  font-size: var(--t-sm);
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+.cleanup-modal__hint code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 1px 4px;
+  border-radius: var(--r-1);
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+}
+
+/* -------- Footer ------------------------------------------------------- */
+
+.cleanup-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.cleanup-modal__btn {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  padding: var(--s-2) var(--s-4);
+  min-width: 80px;
+  cursor: pointer;
+  transition:
+    color var(--d-fast),
+    border-color var(--d-fast),
+    background var(--d-fast);
+}
+.cleanup-modal__btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.cleanup-modal__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cleanup-modal__btn--primary {
+  color: var(--phosphor);
+  border-color: var(--phosphor);
+  background: color-mix(in srgb, var(--phosphor) 10%, var(--paper-raised));
+}
+.cleanup-modal__btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--phosphor) 18%, var(--paper-raised));
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cleanup-modal__backdrop,
+  .cleanup-modal {
+    animation-duration: 0ms;
+  }
+  .cleanup-modal__dot--running {
+    animation: none;
+  }
+}

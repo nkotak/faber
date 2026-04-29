@@ -1,0 +1,146 @@
+/* CustomCompanyEditor.css
+ *
+ * Visual treatment for the user-additions list + add form. Sits inside
+ * PanePortals as a section. Reuses .onb-input / .onb-select / .onb-btn from
+ * OnboardingForms.css; adds layout + row chrome here.
+ */
+
+.custom-companies {
+  display: grid;
+  gap: var(--s-4);
+}
+
+/* -------- List of additions ------------------------------------------- */
+
+.custom-companies__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-1);
+}
+
+.custom-companies__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  transition: border-color var(--d-fast) var(--ease-out-quart);
+}
+.custom-companies__row:hover {
+  border-color: var(--rule-strong);
+}
+
+.custom-companies__row-toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.custom-companies__row-toggle input[type='checkbox'] {
+  accent-color: var(--phosphor);
+  margin: 0;
+}
+
+.custom-companies__row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.custom-companies__row-name {
+  font-family: var(--font-prose);
+  font-size: var(--t-base);
+  color: var(--ink);
+}
+
+.custom-companies__row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+/* Platform tag uses ink-soft (not the phosphor accent) per the design
+ * principle that --phosphor is reserved for state changes and actions —
+ * a static metadata tag doesn't qualify. */
+.custom-companies__row-platform {
+  color: var(--ink-soft);
+}
+.custom-companies__row-sep {
+  color: var(--ink-whisper);
+}
+
+.custom-companies__row-url {
+  font-size: var(--t-xs);
+  color: var(--ink-whisper);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.custom-companies__row-url:hover {
+  color: var(--phosphor);
+}
+
+.custom-companies__row-remove {
+  /* Inherits .onb-chip__close base styles; no overrides needed. */
+}
+
+.custom-companies__empty {
+  margin: 0;
+  padding: var(--s-3);
+  background: var(--paper-sunken);
+  border: 1px dashed var(--rule);
+  border-radius: var(--r-2);
+  text-align: center;
+}
+
+/* -------- Add form ----------------------------------------------------- */
+
+.custom-companies__form {
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+}
+
+.custom-companies__form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr) minmax(0, 1fr);
+  gap: var(--s-3);
+}
+.custom-companies__form-url {
+  grid-column: 1 / -1;
+}
+.custom-companies__form-notes {
+  grid-column: 1 / -1;
+}
+
+.custom-companies__form .onb-field {
+  display: grid;
+  gap: var(--s-1);
+  cursor: text;
+}
+
+.custom-companies__error {
+  margin: 0;
+}
+
+.custom-companies__form-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .custom-companies__form-grid {
+    grid-template-columns: 1fr;
+  }
+}

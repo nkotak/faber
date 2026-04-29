@@ -74,9 +74,29 @@ export class JobManager extends EventEmitter {
    * arg array only. Any file path passed in must already be validated by
    * the route that called into here.
    */
-  spawnJob({ kind, refKey, label, command, args, cwd, expectedPdfReportNum, expectedCvImportedPath, tmpPathToCleanup }) {
+  spawnJob({
+    kind,
+    refKey,
+    label,
+    command,
+    args,
+    cwd,
+    expectedPdfReportNum,
+    expectedCvImportedPath,
+    tmpPathToCleanup,
+    successExitCodes,
+    onSuccess,
+  }) {
     const id = randomUUID();
     const now = Date.now();
+    // Caller may declare additional exit codes that should count as success
+    // (e.g., cleanup scripts intentionally exit 2 from --dry-run when there
+    // are proposed changes — a CI-style signal, not a failure). Default is
+    // exit 0 only, which matches the historical behavior for every existing
+    // call site.
+    const okExitCodes = Array.isArray(successExitCodes) && successExitCodes.length > 0
+      ? successExitCodes
+      : [0];
     const proc = spawn(command, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -151,7 +171,7 @@ export class JobManager extends EventEmitter {
       if (job.status === 'cancelling') {
         job.status = 'cancelled';
         this.#finalize(job);
-      } else if (code === 0) {
+      } else if (okExitCodes.includes(code)) {
         // For PDF jobs, verify the artifact actually exists before we
         // trust exit-0. Claude subprocesses can exit clean without having
         // run their tools (the original bug this guards against).
@@ -161,7 +181,10 @@ export class JobManager extends EventEmitter {
           setTimeout(() => this.#verifyCvImportedOnDisk(job), CV_IMPORTED_INTEGRITY_DELAY_MS);
         } else {
           job.status = 'succeeded';
-          this.#finalize(job);
+          // Fire optional onSuccess hook before finalizing. A hook failure
+          // is logged but does not change the job's perceived status — the
+          // user already saw "succeeded" via the SSE update.
+          this.#runOnSuccessHook(job, onSuccess).finally(() => this.#finalize(job));
         }
       } else {
         job.status = 'failed';
@@ -235,6 +258,21 @@ export class JobManager extends EventEmitter {
       this.jobs.delete(job.id);
       this.emit('remove', { id: job.id });
     }, ttl);
+  }
+
+  /**
+   * Run a caller-provided post-success hook. Errors are caught and logged so
+   * a misbehaving hook never demotes a job from succeeded to failed — by the
+   * time we reach this branch the user has already seen the success update.
+   */
+  async #runOnSuccessHook(job, onSuccess) {
+    if (typeof onSuccess !== 'function') return;
+    try {
+      await onSuccess(this.#snapshot(job));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[jobs] onSuccess hook failed for ${job.kind} ${job.refKey}: ${msg}`);
+    }
   }
 
   /**

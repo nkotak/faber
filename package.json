@@ -13,7 +13,9 @@
     "update:check": "node update-system.mjs check",
     "update": "node update-system.mjs apply",
     "rollback": "node update-system.mjs rollback",
-    "liveness": "node check-liveness.mjs"
+    "liveness": "node check-liveness.mjs",
+    "cleanup:dead": "node cleanup-dead-jobs.mjs",
+    "cleanup:region": "node cleanup-region-mismatch.mjs"
   },
   "keywords": ["ai", "job-search", "claude-code", "career", "automation"],
   "private": true,
