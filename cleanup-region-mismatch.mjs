@@ -41,7 +41,10 @@ const ROOT = __dirname;
 const { values: args } = parseArgs({
   options: {
     'dry-run': { type: 'boolean', default: false },
-    scope: { type: 'string', default: 'all' },
+    // Default is pipeline-only — we never want region filter changes to
+    // sweep through evaluated/applied rows in applications.md. Users who
+    // really want apps swept too can pass --scope=apps or --scope=all.
+    scope: { type: 'string', default: 'pipeline' },
     verbose: { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
   },
@@ -57,7 +60,10 @@ applications get status flipped to Discarded.
 
 Options:
   --dry-run            Preview changes; write nothing
-  --scope=apps|pipeline|all   (default: all)
+  --scope=apps|pipeline|all   (default: pipeline)
+                       The dashboard always passes pipeline. Applied/Interview/
+                       Offer/Rejected rows are protected by TERMINAL_STATUSES
+                       even when --scope=apps.
   --verbose            Per-row output
   --help`);
   process.exit(0);
@@ -268,12 +274,25 @@ async function cleanupApplications(filterCtx) {
     if (!existsSync(reportPath)) continue;
     const reportText = await readFile(reportPath, 'utf-8');
 
-    // Try to extract a location from the report header (Block A "Location" or similar)
-    // Reports vary; look for a "Location" or "Locations" line, fall back to scanning the JD section.
-    const locMatch =
-      reportText.match(/^\*\*Location:\*\*\s*([^\n]+)/m) ??
-      reportText.match(/^\|\s*Location\s*\|\s*([^|]+)\|/m);
-    const location = locMatch ? locMatch[1].trim() : '';
+    // Extract a location from the report header. Two shapes are common:
+    //   1. Plain header:  **Location:** Remote US
+    //   2. Block A table: | Location | 5.0/5 | **Remote US explicitly listed** |
+    //
+    // The Block-A table is `| Field | Score | Notes |` — the actual location
+    // text lives in the THIRD cell (Notes), not the second (Score). An older
+    // version of this regex captured the second cell and produced nonsense
+    // mismatches like "Region mismatch (5.0/5)".
+    let location = '';
+    const plainMatch = reportText.match(/^\*\*Location:\*\*\s*([^\n]+)/m);
+    if (plainMatch) {
+      location = plainMatch[1].trim();
+    } else {
+      const tableMatch = reportText.match(/^\|\s*Location\s*\|[^|\n]*\|\s*([^|\n]+?)\s*\|/m);
+      if (tableMatch) {
+        // Strip markdown bold/italic markers before classifying.
+        location = tableMatch[1].replace(/\*\*/g, '').replace(/__/g, '').trim();
+      }
+    }
     if (!location) continue; // can't classify — leave alone
 
     const r = matchesFilter(location, filterCtx.filterConfig, filterCtx.aliasMap);

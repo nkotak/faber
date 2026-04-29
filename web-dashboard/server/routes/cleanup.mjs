@@ -76,6 +76,11 @@ export function registerCleanupRoutes(app, { careerOpsRoot, jobs }) {
     const args = [
       path.join(careerOpsRoot, 'cleanup-region-mismatch.mjs'),
       '--verbose',
+      // The dashboard always restricts region cleanup to the queue. The
+      // applications.md sweep is opt-in via the CLI only. Even if a user
+      // forces it on, TERMINAL_STATUSES protects Applied/Interview/Offer/
+      // Rejected rows from being touched.
+      '--scope=pipeline',
     ];
     if (dryRun) args.push('--dry-run');
 
