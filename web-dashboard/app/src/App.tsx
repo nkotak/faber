@@ -22,6 +22,7 @@ import { ApplicationsTable } from './components/Table';
 import { DetailPane } from './components/DetailPane';
 import { JobTray } from './components/JobTray';
 import { CommandPalette } from './components/Palette';
+import { InboxModal } from './components/InboxModal';
 import { PendingQueue } from './components/Queue';
 import { EmptyOrLoading } from './components/States';
 import { StatusPicker } from './components/StatusPicker';
@@ -47,6 +48,7 @@ export function App() {
   const [view, setView] = useState<ViewMode>('grouped');
   const [selectedReportNum, setSelectedReportNum] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const [statusPickerOpen, setStatusPickerOpen] = useState(false);
   const [maskComp, setMaskComp] = useState(false); // privacy toggle for shared sessions
 
@@ -164,6 +166,14 @@ export function App() {
     group: 'App',
     label: 'Command palette',
     run: () => setPaletteOpen((v) => !v),
+  });
+  useShortcut({
+    id: 'app.inbox',
+    combo: 'Mod+j',
+    group: 'App',
+    label: 'Quick add URL',
+    run: () => setInboxOpen((v) => !v),
+    when: () => !paletteOpen && !statusPickerOpen,
   });
   useShortcut({
     id: 'app.toggle-settings',
@@ -305,6 +315,7 @@ export function App() {
           setPaletteOpen(false);
         }}
       />
+      <InboxModal open={inboxOpen} onClose={() => setInboxOpen(false)} />
       <StatusPicker
         open={statusPickerOpen}
         reportNumber={selectedApp?.reportNumber ?? null}

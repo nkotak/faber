@@ -1,0 +1,194 @@
+{
+  "_comment": "Built-in location alias map shipped with faber. Each canonical key maps to variant strings that ATS APIs return for the same place. Used by lib/location-filter.mjs to normalize a job's location field. Extend via location_filter.custom_aliases in config/profile.yml — user aliases are merged on top of these.",
+
+  "NYC": [
+    "NYC",
+    "New York City",
+    "New York, NY",
+    "New York",
+    "NY, US",
+    "Manhattan",
+    "Brooklyn",
+    "Queens",
+    "Bronx",
+    "Staten Island",
+    "Long Island City"
+  ],
+  "NJ": [
+    "NJ",
+    "New Jersey",
+    "Jersey City",
+    "Newark",
+    "Hoboken",
+    "Princeton",
+    "Trenton",
+    "Edison, NJ"
+  ],
+  "Bay Area": [
+    "San Francisco",
+    "San Francisco, CA",
+    "SF",
+    "Bay Area",
+    "Oakland",
+    "Berkeley",
+    "Palo Alto",
+    "Mountain View",
+    "San Jose",
+    "Cupertino",
+    "Sunnyvale",
+    "Menlo Park",
+    "Redwood City"
+  ],
+  "Boston": [
+    "Boston",
+    "Boston, MA",
+    "Cambridge, MA",
+    "Cambridge",
+    "Somerville"
+  ],
+  "Seattle": [
+    "Seattle",
+    "Seattle, WA",
+    "Bellevue",
+    "Redmond"
+  ],
+  "Los Angeles": [
+    "Los Angeles",
+    "Los Angeles, CA",
+    "LA",
+    "Santa Monica",
+    "Burbank",
+    "Glendale, CA"
+  ],
+  "Austin": [
+    "Austin",
+    "Austin, TX"
+  ],
+  "Chicago": [
+    "Chicago",
+    "Chicago, IL"
+  ],
+  "Denver": [
+    "Denver",
+    "Denver, CO",
+    "Boulder",
+    "Boulder, CO"
+  ],
+  "DC Metro": [
+    "Washington, DC",
+    "Washington DC",
+    "Arlington, VA",
+    "Alexandria, VA",
+    "Bethesda, MD"
+  ],
+  "Toronto": [
+    "Toronto",
+    "Toronto, Canada",
+    "Toronto, ON",
+    "Toronto, Ontario",
+    "GTA"
+  ],
+  "Vancouver": [
+    "Vancouver",
+    "Vancouver, BC",
+    "Vancouver, Canada"
+  ],
+  "London": [
+    "London",
+    "London, UK",
+    "London, United Kingdom",
+    "London, England"
+  ],
+  "Paris": [
+    "Paris",
+    "Paris, France",
+    "Île-de-France",
+    "Ile-de-France"
+  ],
+  "Berlin": [
+    "Berlin",
+    "Berlin, Germany",
+    "Berlin, DE"
+  ],
+  "Munich": [
+    "Munich",
+    "München",
+    "Munich, Germany"
+  ],
+  "Amsterdam": [
+    "Amsterdam",
+    "Amsterdam, Netherlands"
+  ],
+  "Madrid": [
+    "Madrid",
+    "Madrid, Spain"
+  ],
+  "Barcelona": [
+    "Barcelona",
+    "Barcelona, Spain"
+  ],
+  "Stockholm": [
+    "Stockholm",
+    "Stockholm, Sweden"
+  ],
+  "Dublin": [
+    "Dublin",
+    "Dublin, Ireland"
+  ],
+  "Singapore": [
+    "Singapore"
+  ],
+  "Tokyo": [
+    "Tokyo",
+    "Tokyo, Japan"
+  ],
+  "Sydney": [
+    "Sydney",
+    "Sydney, Australia"
+  ],
+  "Bangalore": [
+    "Bangalore",
+    "Bengaluru",
+    "Bangalore, India"
+  ],
+  "Mumbai": [
+    "Mumbai",
+    "Mumbai, India"
+  ],
+
+  "Remote — US": [
+    "Remote — US",
+    "Remote - US",
+    "Remote, US",
+    "Remote (US)",
+    "Remote US",
+    "US Remote",
+    "United States — Remote",
+    "Remote — Americas",
+    "Remote, Americas",
+    "Remote (Americas)",
+    "Americas Remote",
+    "Remote — North America",
+    "Remote, North America"
+  ],
+  "Remote — EU": [
+    "Remote — EU",
+    "Remote - EU",
+    "Remote, EU",
+    "Remote (EU)",
+    "Remote — EMEA",
+    "Remote, EMEA",
+    "Remote (EMEA)",
+    "EMEA Remote",
+    "Remote — Europe",
+    "Remote, Europe"
+  ],
+  "Remote — Global": [
+    "Remote — Global",
+    "Remote, Global",
+    "Remote (Global)",
+    "Worldwide Remote",
+    "Remote — Worldwide",
+    "Anywhere"
+  ]
+}

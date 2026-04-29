@@ -2,6 +2,7 @@
 
 import { loadApplications, reportNum, normalizeStatus, statusPriority } from '../parsers/applications.mjs';
 import { loadPipelinePending } from '../parsers/pipeline.mjs';
+import { loadLivenessCache } from '../parsers/liveness-cache.mjs';
 import { scanOutputPDFs, scanInterviewPrep, interviewPrepSlugForReport } from '../parsers/output-pdfs.mjs';
 import { updateApplicationStatus } from '../writers/applications.mjs';
 
@@ -25,12 +26,28 @@ const CANONICAL_STATUSES = [
 export function registerApplicationsRoutes(app, { careerOpsRoot, state }) {
   // GET /api/applications - the whole dashboard state for the pipeline view.
   app.get('/api/applications', async () => {
-    const [appsResult, pendingResult, pdfs, prep] = await Promise.all([
+    const [appsResult, pendingResult, pdfs, prep, liveness] = await Promise.all([
       loadApplications(careerOpsRoot),
       loadPipelinePending(careerOpsRoot),
       scanOutputPDFs(careerOpsRoot),
       scanInterviewPrep(careerOpsRoot),
+      loadLivenessCache(careerOpsRoot),
     ]);
+
+    // Attach a `liveness` field to each pending row when the URL has a cache
+    // entry. Rows without a cache entry simply omit the field (no UI badge).
+    const pendingWithLiveness = pendingResult.pending.map((p) => {
+      const entry = liveness.get(p.url);
+      if (!entry) return p;
+      return {
+        ...p,
+        liveness: {
+          lastChecked: entry.lastChecked,
+          lastResult: entry.lastResult,
+          consecutiveFailures: entry.consecutiveFailures,
+        },
+      };
+    });
 
     // Stamp each application with derived fields the UI needs:
     //   - canonicalStatus (lowercase normalized)
@@ -57,12 +74,12 @@ export function registerApplicationsRoutes(app, { careerOpsRoot, state }) {
 
     return {
       applications,
-      pending: pendingResult.pending,
+      pending: pendingWithLiveness,
       canonicalStatuses: CANONICAL_STATUSES,
       meta: {
         total: applications.length,
         withPDF: applications.filter((a) => a.hasPDF).length,
-        pendingCount: pendingResult.pending.length,
+        pendingCount: pendingWithLiveness.length,
         topScore: applications.reduce((m, a) => Math.max(m, a.score), 0),
         avgScore: (() => {
           const scored = applications.filter((a) => a.score > 0);

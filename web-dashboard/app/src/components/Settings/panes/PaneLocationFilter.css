@@ -1,0 +1,11 @@
+/* PaneLocationFilter.css
+ *
+ * Pane shell — just the outer grid + spacing rhythm. The structured editor
+ * (LocationPreferencesEditor) owns its own visual treatment.
+ */
+
+.pane-location-filter {
+  display: grid;
+  gap: var(--s-5);
+  max-width: 720px;
+}

@@ -30,6 +30,7 @@ import { PaneCV } from './panes/PaneCV';
 import { PaneProfile } from './panes/PaneProfile';
 import { PaneProfileMd } from './panes/PaneProfileMd';
 import { PanePortals } from './panes/PanePortals';
+import { PaneLocationFilter } from './panes/PaneLocationFilter';
 import { useShortcut } from '../../lib/keymap';
 import './SettingsView.css';
 import '../Onboarding/OnboardingForms.css';
@@ -284,6 +285,14 @@ export function SettingsView({ initialPane, onChangePane, onClose }: Props) {
     run: () => switchPane('portals'),
     when: () => true,
   });
+  useShortcut({
+    id: 'settings.pane.5',
+    combo: 'Mod+5',
+    group: 'Settings',
+    label: 'Location Filter pane',
+    run: () => switchPane('locationFilter'),
+    when: () => true,
+  });
 
   // -- Pane title + path for the header strip -----------------------------
   const navItem = useMemo(
@@ -390,6 +399,8 @@ function titleFor(pane: SettingsPaneId): string {
       return 'profile notes';
     case 'portals':
       return 'portals';
+    case 'locationFilter':
+      return 'location filter';
   }
 }
 
@@ -414,5 +425,7 @@ function ActivePane({ id, ...rest }: ActivePaneProps) {
       return <PaneProfileMd {...rest} />;
     case 'portals':
       return <PanePortals {...rest} />;
+    case 'locationFilter':
+      return <PaneLocationFilter {...rest} />;
   }
 }

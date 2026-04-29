@@ -1,12 +1,16 @@
 .queue {
   overflow-y: auto;
-  padding: var(--s-4) 0;
+  padding: 0 0 var(--s-4);
   flex: 1;
   min-height: 0;
 }
 .queue--empty {
-  padding: var(--s-8) var(--s-6);
+  display: flex;
+  flex-direction: column;
   color: var(--ink-muted);
+}
+.queue__empty-body {
+  padding: var(--s-7) var(--s-6);
 }
 .queue--empty code {
   font-family: var(--font-mono);
@@ -69,15 +73,93 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.queue__item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+}
 .queue__item-url {
   font-size: var(--t-xs);
   color: var(--ink-whisper);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .queue__item-url:hover {
   color: var(--phosphor);
+}
+.queue__item-loc {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  padding: 1px 8px;
+  flex-shrink: 0;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue__item-loc--remote {
+  color: var(--phosphor);
+  border-color: color-mix(in srgb, var(--phosphor) 35%, var(--rule));
+  background: color-mix(in srgb, var(--phosphor) 5%, var(--paper));
+}
+/* ── Liveness badge ────────────────────────────────────────────────────────
+ * Sourced from data/liveness-cache.tsv. Subdued by default (most rows are
+ * "live") so the queue doesn't feel busy; tentative + uncertain draw the eye.
+ */
+.queue__item-liveness {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-muted);
+  padding: 1px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.queue__item-liveness-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.65;
+}
+.queue__item-liveness-label {
+  font-variant-numeric: tabular-nums;
+}
+.queue__item-liveness--ok {
+  /* Subdued — "all good" doesn't need to compete for attention. */
+  color: color-mix(in srgb, var(--ink-muted) 88%, var(--verdant) 12%);
+}
+.queue__item-liveness--tentative {
+  color: var(--ember);
+  border-color: color-mix(in srgb, var(--ember) 35%, var(--rule));
+  background: color-mix(in srgb, var(--ember) 5%, var(--paper));
+}
+.queue__item-liveness--uncertain {
+  color: var(--azure);
+  border-color: color-mix(in srgb, var(--azure) 35%, var(--rule));
+  background: color-mix(in srgb, var(--azure) 5%, var(--paper));
+}
+.queue__item-liveness--dead {
+  color: var(--ember);
+  border-color: color-mix(in srgb, var(--ember) 60%, var(--rule));
+  background: color-mix(in srgb, var(--ember) 12%, var(--paper));
+  font-weight: 600;
 }
 .queue__eval {
   padding: 8px 14px;

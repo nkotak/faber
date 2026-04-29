@@ -794,6 +794,7 @@ func ParsePipelinePending(careerOpsPath string) []model.PendingJob {
 
 		company := ""
 		role := ""
+		location := ""
 		if len(m) > 2 && m[2] != "" {
 			parts := strings.Split(m[2], "|")
 			if len(parts) > 0 {
@@ -802,12 +803,19 @@ func ParsePipelinePending(careerOpsPath string) []model.PendingJob {
 			if len(parts) > 1 {
 				role = strings.TrimSpace(parts[1])
 			}
+			// Optional 4th column: location string (added 2026-04 with the
+			// location_filter rollout). Older entries don't have it; absence
+			// is benign — readers default to "".
+			if len(parts) > 2 {
+				location = strings.TrimSpace(parts[2])
+			}
 		}
 
 		out = append(out, model.PendingJob{
 			URL:        url,
 			Company:    company,
 			Role:       role,
+			Location:   location,
 			Section:    section,
 			LineNumber: i + 1,
 			RawLine:    line,

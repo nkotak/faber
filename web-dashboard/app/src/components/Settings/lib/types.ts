@@ -75,4 +75,5 @@ export const SETTINGS_NAV_ITEMS: ReadonlyArray<SettingsNavItem> = [
   { id: 'profile', label: 'Profile', idx: 2, relPath: 'config/profile.yml' },
   { id: 'profileMd', label: 'Profile Notes', idx: 3, relPath: 'modes/_profile.md' },
   { id: 'portals', label: 'Portals', idx: 4, relPath: 'portals.yml' },
+  { id: 'locationFilter', label: 'Location Filter', idx: 5, relPath: 'config/profile.yml#location_filter' },
 ] as const;

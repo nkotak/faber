@@ -37,13 +37,30 @@ export interface Application {
   compEstimate: string;
 }
 
+/** Liveness cache entry, attached to a pending row when its URL was checked
+ * by `cleanup-dead-jobs.mjs`. Absent until first check. */
+export interface PendingLiveness {
+  /** YYYY-MM-DD when the URL was last checked. */
+  lastChecked: string;
+  /** 'active' = on board / page loads, 'expired' = 404 / removed,
+   * 'uncertain' = transient navigation error. */
+  lastResult: 'active' | 'expired' | 'uncertain';
+  /** Two-strikes counter: 0 = healthy, 1 = tentative (one fail), 2+ = confirmed. */
+  consecutiveFailures: number;
+}
+
 export interface PendingJob {
   url: string;
   company: string;
   role: string;
+  /** Optional 4th column of the pipeline.md row, added with location_filter
+   * rollout (2026-04). Empty string for older entries that pre-date the schema. */
+  location: string;
   section: string;
   lineNumber: number;
   rawLine: string;
+  /** Set only when the URL has been checked at least once. */
+  liveness?: PendingLiveness;
 }
 
 export interface PipelineMeta {
@@ -62,7 +79,12 @@ export interface PipelineResponse {
   meta: PipelineMeta;
 }
 
-export type JobKind = 'pdf' | 'eval' | 'interview-prep';
+export type JobKind =
+  | 'pdf'
+  | 'eval'
+  | 'interview-prep'
+  | 'cleanup-dead'
+  | 'cleanup-region';
 export type JobStatus = 'running' | 'cancelling' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface Job {
@@ -183,6 +205,9 @@ export interface ProfileYaml {
     timezone: string;
     visa_status?: string;
   };
+  /** Optional pre-scan location filter (added 2026-04). When present and
+   * `enabled: true`, scans drop jobs whose location string doesn't match. */
+  location_filter?: LocationFilter;
 }
 
 /** A single archetype row used by both the YAML profile and step 3.
@@ -239,6 +264,24 @@ export interface PortalsConfig {
   negativeKeywords: string[];
   /** company name → enabled flag. only applied when useDefaults is false */
   companyOverrides: Record<string, boolean>;
+  /** User-added companies that aren't in the template. Persisted to a
+   * separate `custom_companies` block in portals.yml so they round-trip
+   * cleanly without colliding with the curated tracked_companies defaults. */
+  customCompanies: CustomCompany[];
+}
+
+/** A user-added tracked company. Mirrors the entry shape of
+ * `tracked_companies` in portals.yml but lives in the parallel
+ * `custom_companies` block. The slug is required for ATS-API platforms
+ * (ashby/lever/greenhouse) and ignored for `workable`/`custom`. */
+export interface CustomCompany {
+  name: string;
+  platform: 'ashby' | 'lever' | 'greenhouse' | 'workable' | 'custom';
+  /** ATS slug — required when platform is ashby/lever/greenhouse */
+  slug?: string;
+  careers_url: string;
+  notes?: string;
+  enabled: boolean;
 }
 
 /** Job spawned by /api/onboarding/parse-resume. The server returns a Job
@@ -322,7 +365,40 @@ export interface ProfileYamlFull {
     visa_status: string;
     onsite_availability: string;
   };
+  /** Optional pre-scan location filter (added 2026-04). Disabled by default;
+   * users opt in via the Settings → Location filter pane. */
+  location_filter?: LocationFilter;
 }
 
-/** Identifier for the four Settings panes. */
-export type SettingsPaneId = 'cv' | 'profile' | 'profileMd' | 'portals';
+/** Pre-scan location filter shape mirroring `location_filter` in
+ * `config/profile.yml`. Mirrors the zod schema in
+ * `server/onboarding/validation.mjs` `locationFilterSchema`. */
+export interface LocationFilter {
+  /** Master toggle. When false (default), every job passes the filter. */
+  enabled: boolean;
+  remote?: {
+    /** When false, all "Remote" jobs are rejected regardless of region. */
+    enabled: boolean;
+    /** Regions accepted for "Remote — X" listings. Lowercase canonical names:
+     * 'us', 'americas', 'emea', 'apac', 'global'. */
+    accept_regions: string[];
+    /** Behavior for bare "Remote" strings without a region qualifier. */
+    bare_remote_policy: 'allow' | 'deny' | 'unknown';
+  };
+  hybrid?: {
+    /** Canonical location names (e.g. "NYC", "NJ", "Bay Area"). Each is
+     * expanded via the alias map to match many variants of the same place. */
+    locations: string[];
+  };
+  onsite?: {
+    locations: string[];
+  };
+  /** User-defined extensions to the built-in alias map. Canonical name
+   * → list of variant strings. */
+  custom_aliases?: Record<string, string[]>;
+  /** What to do for empty / unparseable location strings. */
+  unknown_policy: 'allow' | 'deny' | 'ask';
+}
+
+/** Identifier for the Settings panes. */
+export type SettingsPaneId = 'cv' | 'profile' | 'profileMd' | 'portals' | 'locationFilter';

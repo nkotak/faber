@@ -39,10 +39,13 @@
  *   ]
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
+import { parseYaml } from './lib/yaml-mini.mjs';
+import { loadAliases, matchesFilter } from './lib/location-filter.mjs';
+import { fetchAtsBoard, ATS_PLATFORMS } from './lib/ats-clients.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -56,6 +59,7 @@ const { values: args } = parseArgs({
     platform: { type: 'string' },
     company: { type: 'string' },
     summary: { type: 'boolean', default: false },
+    'no-location-filter': { type: 'boolean', default: false },
   },
   strict: false,
 });
@@ -95,42 +99,53 @@ function parsePortalsYaml(text) {
 }
 
 // ---------------------------------------------------------------------------
-// API fetchers — one per platform
+// Location filter loader
 // ---------------------------------------------------------------------------
 
-const API_TIMEOUT = 90_000; // Lever embeds full HTML descriptions — Spotify needs ~45s
-
-async function fetchWithTimeout(url, timeoutMs = API_TIMEOUT) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 /**
- * Ashby Posting API
- * GET https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true
- * Returns { jobs: [...] }
+ * Read config/profile.yml's location_filter block and config/location-aliases.json.
+ * Returns { filterConfig, aliasMap } or null if no filter is configured / disabled.
+ *
+ * If --no-location-filter is set OR profile.yml is missing OR location_filter is
+ * absent OR location_filter.enabled is falsy, returns null and the script keeps
+ * its previous (pre-filter) behavior.
  */
-async function fetchAshby(company) {
-  const url = `https://api.ashbyhq.com/posting-api/job-board/${company.slug}?includeCompensation=true`;
-  const data = await fetchWithTimeout(url);
-  return (data.jobs || []).map(job => ({
-    title: job.title || '',
-    url: job.jobUrl || '',
-    company: company.name,
-    department: job.department || job.team || '',
-    location: job.location || '',
-    compensation: formatAshbyComp(job.compensation),
-    platform: 'ashby',
-    slug: company.slug,
-  }));
+function loadFilterContext() {
+  if (args['no-location-filter']) return null;
+
+  const profilePath = join(ROOT, 'config', 'profile.yml');
+  if (!existsSync(profilePath)) return null;
+
+  let profile;
+  try {
+    profile = parseYaml(readFileSync(profilePath, 'utf-8'));
+  } catch (err) {
+    console.error(`scan-apis: failed to parse config/profile.yml — disabling location filter (${err.message})`);
+    return null;
+  }
+
+  const filterConfig = profile?.location_filter;
+  if (!filterConfig || !filterConfig.enabled) return null;
+
+  // Load alias map (built-in + user custom_aliases)
+  const aliasPath = join(ROOT, 'config', 'location-aliases.json');
+  let builtinAliases = {};
+  if (existsSync(aliasPath)) {
+    try {
+      builtinAliases = JSON.parse(readFileSync(aliasPath, 'utf-8'));
+    } catch (err) {
+      console.error(`scan-apis: failed to parse location-aliases.json (${err.message})`);
+    }
+  }
+  const aliasMap = loadAliases(builtinAliases, filterConfig.custom_aliases ?? {});
+
+  return { filterConfig, aliasMap };
 }
+
+// ---------------------------------------------------------------------------
+// Per-platform mappers — convert raw board data into scan-output shape
+// HTTP + timeout + error handling lives in lib/ats-clients.mjs.
+// ---------------------------------------------------------------------------
 
 function formatAshbyComp(comp) {
   if (!comp) return '';
@@ -144,51 +159,45 @@ function formatAshbyComp(comp) {
   return '';
 }
 
-/**
- * Lever Postings API
- * GET https://api.lever.co/v0/postings/{slug}
- * Returns array of posting objects
- */
-async function fetchLever(company) {
-  const url = `https://api.lever.co/v0/postings/${company.slug}`;
-  const data = await fetchWithTimeout(url);
-  return (Array.isArray(data) ? data : []).map(job => ({
+const MAPPERS = {
+  ashby: (job, company) => ({
+    title: job.title || '',
+    url: job.jobUrl || '',
+    company: company.name,
+    department: job.department || job.team || '',
+    location: job.location || '',
+    compensation: formatAshbyComp(job.compensation),
+    platform: 'ashby',
+    slug: company.slug,
+  }),
+  lever: (job, company) => ({
     title: job.text || '',
     url: job.hostedUrl || '',
     company: company.name,
     department: job.categories?.team || '',
     location: job.categories?.location || (job.categories?.allLocations || []).join(', ') || '',
-    compensation: '',  // Lever API doesn't expose comp
+    compensation: '', // Lever API doesn't expose comp
     platform: 'lever',
     slug: company.slug,
-  }));
-}
-
-/**
- * Greenhouse Job Board API
- * GET https://boards-api.greenhouse.io/v1/boards/{slug}/jobs
- * Returns { jobs: [...] }
- */
-async function fetchGreenhouse(company) {
-  const url = `https://boards-api.greenhouse.io/v1/boards/${company.slug}/jobs`;
-  const data = await fetchWithTimeout(url);
-  return (data.jobs || []).map(job => ({
+  }),
+  greenhouse: (job, company) => ({
     title: job.title || '',
     url: job.absolute_url || '',
     company: company.name,
-    department: job.departments?.map(d => d.name).join(', ') || '',
+    department: job.departments?.map((d) => d.name).join(', ') || '',
     location: job.location?.name || '',
-    compensation: '',  // Greenhouse board API doesn't expose comp
+    compensation: '', // Greenhouse board API doesn't expose comp
     platform: 'greenhouse',
     slug: company.slug,
-  }));
-}
-
-const FETCHERS = {
-  ashby: fetchAshby,
-  lever: fetchLever,
-  greenhouse: fetchGreenhouse,
+  }),
 };
+
+async function fetchCompanyJobs(company) {
+  const mapper = MAPPERS[company.platform];
+  if (!mapper) throw new Error(`No mapper for platform ${company.platform}`);
+  const raw = await fetchAtsBoard({ platform: company.platform, slug: company.slug });
+  return raw.map((job) => mapper(job, company));
+}
 
 // ---------------------------------------------------------------------------
 // Main
@@ -200,7 +209,7 @@ async function main() {
 
   // Filter to API-eligible, enabled companies
   let eligible = companies.filter(
-    c => c.enabled === true && c.platform && FETCHERS[c.platform] && c.slug
+    c => c.enabled === true && c.platform && ATS_PLATFORMS.includes(c.platform) && c.slug
   );
 
   // Apply CLI filters
@@ -219,9 +228,8 @@ async function main() {
   // Fetch all in parallel
   const results = await Promise.allSettled(
     eligible.map(async company => {
-      const fetcher = FETCHERS[company.platform];
       try {
-        const jobs = await fetcher(company);
+        const jobs = await fetchCompanyJobs(company);
         return { company: company.name, slug: company.slug, platform: company.platform, jobs, error: null };
       } catch (err) {
         return { company: company.name, slug: company.slug, platform: company.platform, jobs: [], error: err.message };
@@ -229,17 +237,42 @@ async function main() {
     })
   );
 
+  // Load location filter context (null when disabled or unconfigured)
+  const filterCtx = loadFilterContext();
+
   const allJobs = [];
-  const summary = { total: 0, byPlatform: {}, byCompany: {}, errors: [] };
+  const summary = {
+    total: 0,
+    byPlatform: {},
+    byCompany: {},
+    errors: [],
+    location: { applied: !!filterCtx, kept: 0, rejected: 0, byReason: {} },
+  };
 
   for (const result of results) {
     const val = result.status === 'fulfilled' ? result.value : {
       company: 'unknown', slug: 'unknown', platform: 'unknown', jobs: [], error: result.reason?.message,
     };
 
-    allJobs.push(...val.jobs);
+    // Apply location filter to this company's jobs
+    let kept = val.jobs;
+    if (filterCtx) {
+      kept = [];
+      for (const job of val.jobs) {
+        const r = matchesFilter(job.location, filterCtx.filterConfig, filterCtx.aliasMap);
+        if (r.pass) {
+          kept.push(job);
+          summary.location.kept++;
+        } else {
+          summary.location.rejected++;
+          summary.location.byReason[r.reason] = (summary.location.byReason[r.reason] || 0) + 1;
+        }
+      }
+    }
 
-    const count = val.jobs.length;
+    allJobs.push(...kept);
+
+    const count = kept.length;
     summary.total += count;
     summary.byPlatform[val.platform] = (summary.byPlatform[val.platform] || 0) + count;
     summary.byCompany[val.company] = count;
@@ -266,6 +299,13 @@ async function main() {
   console.error(`\nscan-apis: ${summary.total} jobs from ${eligible.length} companies`);
   console.error(`  ashby: ${summary.byPlatform.ashby || 0} | lever: ${summary.byPlatform.lever || 0} | greenhouse: ${summary.byPlatform.greenhouse || 0}`);
   console.error(companyLines);
+
+  if (summary.location.applied) {
+    console.error(`\nlocation filter: kept ${summary.location.kept}, rejected ${summary.location.rejected}`);
+    for (const [reason, n] of Object.entries(summary.location.byReason).sort((a, b) => b[1] - a[1])) {
+      console.error(`  ${reason}: ${n}`);
+    }
+  }
 
   if (summary.errors.length > 0) {
     console.error(`\n${summary.errors.length} errors:`);

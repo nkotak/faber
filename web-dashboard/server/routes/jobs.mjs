@@ -15,6 +15,7 @@
 // to the job manager for live progress chips.
 
 import { loadApplications, reportNum } from '../parsers/applications.mjs';
+import { markUrlEvaluated } from '../writers/pipeline-flipper.mjs';
 
 const CLAUDE_BASE_FLAGS = [
   '--output-format', 'stream-json',
@@ -70,8 +71,15 @@ export function registerJobsRoutes(app, { careerOpsRoot, jobs }) {
       refKey: url,
       label,
       command: 'claude',
-      args: ['-p', `/faber ${url}`, ...CLAUDE_BASE_FLAGS],
+      // /faber offer = report + score + tracker, NO PDF. PDF stays a
+      // separate, explicit action via the per-row PDF button. The full
+      // /faber {url} (auto-pipeline) flow is reserved for the slash command
+      // outside the dashboard.
+      args: ['-p', `/faber offer ${url}`, ...CLAUDE_BASE_FLAGS],
       cwd: careerOpsRoot,
+      // Post-success: flip the matching - [ ] row in data/pipeline.md to
+      // - [x] so the URL leaves the Queue UI. Failure is logged, not fatal.
+      onSuccess: () => markUrlEvaluated(careerOpsRoot, url),
     });
     return snapshot;
   });

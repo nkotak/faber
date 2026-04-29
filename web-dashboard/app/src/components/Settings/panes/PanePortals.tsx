@@ -17,6 +17,8 @@ import {
 import { useDirty } from '../lib/useDirty';
 import { parsePortalsYaml } from '../lib/parsePortalsYaml';
 import { SETTINGS_SAVE_EVENT } from '../SettingsView';
+import { CustomCompanyEditor } from './CustomCompanyEditor';
+import './CustomCompanyEditor.css';
 import './PanePortals.css';
 
 interface Props {
@@ -156,6 +158,17 @@ export function PanePortals({
           overrides={form.companyOverrides}
           onChange={(companyOverrides) =>
             setForm((prev) => (prev ? { ...prev, companyOverrides } : prev))
+          }
+        />
+      </section>
+
+      <section className="onb-section">
+        <h3 className="onb-section__title">your additions</h3>
+        <p className="onb-help"># extend the curated defaults above</p>
+        <CustomCompanyEditor
+          values={form.customCompanies}
+          onChange={(customCompanies) =>
+            setForm((prev) => (prev ? { ...prev, customCompanies } : prev))
           }
         />
       </section>

@@ -116,6 +116,34 @@ const profileLocation = z
   })
   .strict();
 
+// -- location_filter (optional, controls scan-time location filtering) ------
+const locationFilterRemote = z
+  .object({
+    enabled: z.boolean().default(true),
+    accept_regions: z.array(z.string().min(1).max(40)).max(20).default([]),
+    bare_remote_policy: z.enum(['allow', 'deny', 'unknown']).default('allow'),
+  })
+  .strict();
+
+const locationFilterListBlock = z
+  .object({
+    locations: z.array(z.string().min(1).max(80)).max(100).default([]),
+  })
+  .strict();
+
+export const locationFilterSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    remote: locationFilterRemote.optional(),
+    hybrid: locationFilterListBlock.optional(),
+    onsite: locationFilterListBlock.optional(),
+    custom_aliases: z
+      .record(z.string().min(1).max(80), z.array(z.string().min(1).max(120)).max(50))
+      .optional(),
+    unknown_policy: z.enum(['allow', 'deny', 'ask']).default('ask'),
+  })
+  .strict();
+
 export const profileYamlSchema = z
   .object({
     candidate: profileCandidate,
@@ -123,6 +151,7 @@ export const profileYamlSchema = z
     narrative: profileNarrative,
     compensation: profileCompensation,
     location: profileLocation,
+    location_filter: locationFilterSchema.optional(),
   })
   .strict();
 
@@ -174,6 +203,17 @@ const portalsCompanyToggle = z
   })
   .strict();
 
+const portalsCustomCompany = z
+  .object({
+    name: z.string().min(1).max(160),
+    platform: z.enum(['ashby', 'lever', 'greenhouse', 'workable', 'custom']),
+    slug: z.string().max(120).optional().default(''),
+    careers_url: z.string().min(1).max(500),
+    notes: z.string().max(280).optional().default(''),
+    enabled: z.boolean().default(true),
+  })
+  .strict();
+
 export const portalsSchema = z
   .object({
     use_defaults: z.boolean(),
@@ -185,6 +225,9 @@ export const portalsSchema = z
       .strict()
       .optional(),
     companies: z.array(portalsCompanyToggle).max(300).optional().default([]),
+    /** User-added companies. Persisted to the parallel `custom_companies`
+     * block in portals.yml so they don't collide with template defaults. */
+    custom_companies: z.array(portalsCustomCompany).max(100).optional().default([]),
   })
   .strict();
 

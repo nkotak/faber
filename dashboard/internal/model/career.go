@@ -63,6 +63,7 @@ type PendingJob struct {
 	URL        string // the job posting URL
 	Company    string // hint from "| Company |" (may be empty)
 	Role       string // hint from "| Company | Role" (may be empty)
+	Location   string // optional 4th column added 2026-04 with location_filter
 	Section    string // nearest preceding ## or ### header
 	LineNumber int    // position in data/pipeline.md (1-indexed)
 	RawLine    string // original markdown line for round-trip

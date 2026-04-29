@@ -64,16 +64,21 @@ export async function loadPipelinePending(careerOpsRoot) {
 
     let company = '';
     let role = '';
+    let location = '';
     if (m[2]) {
       const parts = m[2].split('|');
       company = (parts[0] ?? '').trim();
       role = (parts[1] ?? '').trim();
+      // Optional 4th column (added with location_filter rollout 2026-04).
+      // Older entries don't have it; treat missing as ''.
+      location = (parts[2] ?? '').trim();
     }
 
     out.push({
       url,
       company,
       role,
+      location,
       section,
       lineNumber: i + 1,
       rawLine: raw,

@@ -1420,9 +1420,16 @@ func (m PipelineModel) renderPendingRow(pj model.PendingJob, selected bool) stri
 	hostW := 22
 	companyW := 16
 	statusGlyphW := 2
-	roleW := m.width - hostW - companyW - statusGlyphW - 10
+	// Location takes a fixed column when present, else 0. Allocating it
+	// up-front keeps role width stable regardless of which rows have it.
+	locationW := 0
+	if pj.Location != "" {
+		locationW = 14
+	}
+	roleW := m.width - hostW - companyW - statusGlyphW - locationW - 10
 	if roleW < 15 {
 		roleW = 15
+		locationW = 0 // give up location if width is too constrained
 	}
 
 	// Eval status glyph (2 chars)
@@ -1466,11 +1473,32 @@ func (m PipelineModel) renderPendingRow(pj model.PendingJob, selected bool) stri
 	}
 	roleStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext).Width(roleW)
 
-	line := fmt.Sprintf(" %s%s %s %s",
+	// Location column (rendered only when allocated). Remote-tagged locations
+	// get a subtle blue tint; everything else uses the muted subtext color so
+	// the role still leads visually.
+	var locationCell string
+	if locationW > 0 {
+		loc := pj.Location
+		if len(loc) > locationW {
+			loc = loc[:locationW-1] + "…"
+		}
+		lower := strings.ToLower(pj.Location)
+		isRemote := strings.Contains(lower, "remote") || strings.Contains(lower, "anywhere")
+		var locStyle lipgloss.Style
+		if isRemote {
+			locStyle = lipgloss.NewStyle().Foreground(m.theme.Blue).Width(locationW)
+		} else {
+			locStyle = lipgloss.NewStyle().Foreground(m.theme.Overlay).Width(locationW)
+		}
+		locationCell = " " + locStyle.Render(loc)
+	}
+
+	line := fmt.Sprintf(" %s%s %s %s%s",
 		statusGlyph,
 		hostStyle.Render(host),
 		companyStyle.Render(company),
 		roleStyle.Render(role),
+		locationCell,
 	)
 
 	if selected {
