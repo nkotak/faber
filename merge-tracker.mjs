@@ -282,7 +282,39 @@ for (const file of tsvFiles) {
     const entryNum = addition.num > maxNum ? addition.num : ++maxNum;
     if (addition.num > maxNum) maxNum = addition.num;
 
-    const newLine = `| ${entryNum} | ${addition.date} | ${addition.company} | ${addition.role} | ${addition.score} | ${addition.status} | ${addition.pdf} | ${addition.report} | ${addition.notes} |`;
+    // Collision guard: when two evals run in parallel they each pick the
+    // same "next" report number from looking at reports/, but only one
+    // actually gets that row number after dedup. The other ends up with a
+    // row number that doesn't match its report-file prefix, which makes
+    // the dashboard's reportNumber-keyed selection conflate the two rows.
+    // Renumber the report file + link to match the row number, so each
+    // row's report is uniquely addressable.
+    let reportLink = addition.report;
+    const linkMatch = reportLink.match(/\[(\d+)\]\(([^)]+)\)/);
+    if (linkMatch) {
+      const linkNum = parseInt(linkMatch[1], 10);
+      const linkPath = linkMatch[2];
+      if (linkNum !== entryNum) {
+        const padded = String(entryNum).padStart(3, '0');
+        const newRel = linkPath.replace(/^reports\/\d+/, `reports/${padded}`);
+        const oldAbs = join(CAREER_OPS, linkPath);
+        const newAbs = join(CAREER_OPS, newRel);
+        if (!DRY_RUN && existsSync(oldAbs) && !existsSync(newAbs)) {
+          try {
+            renameSync(oldAbs, newAbs);
+            reportLink = `[${padded}](${newRel})`;
+            console.log(`   ↳ renumbered report ${linkMatch[1]} → ${padded} (collision avoided)`);
+          } catch (err) {
+            console.warn(`⚠️  Could not rename ${linkPath} → ${newRel}: ${err.message}`);
+          }
+        } else if (DRY_RUN) {
+          reportLink = `[${padded}](${newRel})`;
+          console.log(`   ↳ would renumber report ${linkMatch[1]} → ${padded}`);
+        }
+      }
+    }
+
+    const newLine = `| ${entryNum} | ${addition.date} | ${addition.company} | ${addition.role} | ${addition.score} | ${addition.status} | ${addition.pdf} | ${reportLink} | ${addition.notes} |`;
     newLines.push(newLine);
     added++;
     console.log(`➕ Add #${entryNum}: ${addition.company} — ${addition.role} (${addition.score})`);
