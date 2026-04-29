@@ -54,7 +54,7 @@ const { values: args } = parseArgs({
   options: {
     'dry-run': { type: 'boolean', default: false },
     scope: { type: 'string', default: 'all' },
-    concurrency: { type: 'string', default: '4' },
+    concurrency: { type: 'string', default: '8' },
     'max-age': { type: 'string', default: '7' },
     limit: { type: 'string', default: '0' },
     'no-cache': { type: 'boolean', default: false },
@@ -70,7 +70,7 @@ if (args.help) {
 Options:
   --dry-run            Preview changes; write nothing
   --scope=apps|pipeline|all   (default: all)
-  --concurrency=N      Parallel browser contexts (default: 4)
+  --concurrency=N      Parallel browser contexts (default: 8)
   --max-age=DAYS       Skip URLs checked more recently than this (default: 7)
   --limit=N            Check only first N candidates (oldest first; 0 = no limit)
   --no-cache           Ignore liveness-cache.tsv

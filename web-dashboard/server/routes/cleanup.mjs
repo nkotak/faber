@@ -14,11 +14,22 @@ import path from 'node:path';
 const NODE_BIN = process.execPath; // current node binary, avoids PATH issues
 
 export function registerCleanupRoutes(app, { careerOpsRoot, jobs }) {
-  // GET /api/cleanup/status - returns whether either cleanup is currently running.
-  app.get('/api/cleanup/status', async () => ({
-    deadRunning: jobs.hasActiveFor('cleanup-dead', 'current'),
-    regionRunning: jobs.hasActiveFor('cleanup-region', 'current'),
-  }));
+  // GET /api/cleanup/status - reports the most-recent job per cleanup kind,
+  // running OR recently finished. Cleanup-* succeeded jobs are kept alive in
+  // the JobManager registry for 10 minutes (vs the default 5 seconds) so the
+  // UI can re-attach to a finished dry-run and show the apply button when
+  // the user reopens the modal after a long wait.
+  app.get('/api/cleanup/status', async () => {
+    const dead = jobs.getMostRecentFor('cleanup-dead', 'current');
+    const region = jobs.getMostRecentFor('cleanup-region', 'current');
+    const isRunning = (j) => !!j && (j.status === 'running' || j.status === 'cancelling');
+    return {
+      deadRunning: isRunning(dead),
+      regionRunning: isRunning(region),
+      deadJob: dead, // running, succeeded, failed, or null
+      regionJob: region,
+    };
+  });
 
   // POST /api/cleanup/dead  { dryRun?: boolean, limit?: number }
   app.post('/api/cleanup/dead', async (req, reply) => {
