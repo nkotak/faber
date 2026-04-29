@@ -29,10 +29,15 @@ const TOAST_MS = {
  *
  * Keyed by `${kind}:${status}`; the value is the toast TTL in ms. Falls back
  * to TOAST_MS[status] for unmatched kinds.
+ *
+ * 2 minutes is the chosen cleanup window — enough room for the user to
+ * realize the dry-run finished, glance at the chip, and click apply. The
+ * inline Apply button on the chip + the modal re-attach mean we no longer
+ * need the original 10-minute generosity.
  */
 const TOAST_MS_BY_KIND = {
-  'cleanup-dead:succeeded': 600_000, // 10 minutes
-  'cleanup-region:succeeded': 600_000,
+  'cleanup-dead:succeeded': 120_000, // 2 minutes
+  'cleanup-region:succeeded': 120_000,
 };
 
 /** Delay after exit before we scan for the expected artifact. Chokidar's

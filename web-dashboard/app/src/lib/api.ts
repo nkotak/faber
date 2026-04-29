@@ -199,6 +199,11 @@ export const api = {
   addInboxUrl: (url: string) =>
     jpost<{ ok: true; row: string }>('/api/inbox/add', { url }),
 
+  /** POST /api/inbox/remove — hard-delete a URL's row from data/pipeline.md.
+   *  Matches both `- [ ]` and `- [x]` rows. .bak snapshot written server-side. */
+  removePipelineUrl: (url: string) =>
+    jpost<{ ok: true }>('/api/inbox/remove', { url }),
+
   // ------------------------------------------------------------------
   // Onboarding endpoints. These exist (or will exist) on the Fastify
   // server under /api/onboarding/*. Schema contract is in the plan at
