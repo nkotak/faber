@@ -6,6 +6,10 @@ cv.md.bak-*
 data/applications.md
 data/pipeline.md
 data/scan-history.tsv
+data/episodes.tsv
+data/.applications.snapshot.md
+data/.reflection-errors.log
+data/liveness-cache.tsv
 reports/*.md
 !reports/.gitkeep
 output/*

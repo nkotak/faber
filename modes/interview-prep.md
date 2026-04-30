@@ -137,5 +137,6 @@ After delivering the report:
 - **NEVER invent interview questions and attribute them to sources.** Inferred questions must be labeled `[inferred from JD]`.
 - **NEVER fabricate Glassdoor ratings or statistics.** If the data isn't there, say so.
 - **Cite everything.** Every question, every stat, every claim gets a source or an `[inferred]` tag.
+- **Apply prose-discipline to any prose the user will speak.** Step 4 ("what a strong answer looks like"), Step 7 ("Questions to ask them"), and any STAR drafts in Step 5 are read aloud during prep. Read `.claude/skills/prose-discipline/SKILL.md` and `references/anti-patterns.md` before drafting these sections. Run `node .claude/skills/prose-discipline/scripts/validate-prose.mjs` on the speakable sections after drafting; fix every violation. The Research (Step 1), Process Overview (Step 2), Round-by-Round (Step 3), Technical Prep Checklist (Step 6), and Company Signals "Values they screen for" / "Things to avoid" subsections are internal analysis and exempt.
 - Generate in the language of the JD (EN default).
 - Be direct. This is a working prep document, not a pep talk.
