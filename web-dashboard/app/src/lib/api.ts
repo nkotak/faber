@@ -184,15 +184,25 @@ export const api = {
       dryRun: opts.dryRun ?? true,
     }),
 
-  /** GET /api/cleanup/status — { deadRunning, regionRunning } booleans. */
+  /** GET /api/cleanup/status — running booleans + active job snapshots so
+   *  the UI can re-attach to an in-flight dry-run after the modal is closed
+   *  and reopened. Job is null when nothing is running for that kind. */
   cleanupStatus: () =>
-    jget<{ deadRunning: boolean; regionRunning: boolean }>(
-      '/api/cleanup/status',
-    ),
+    jget<{
+      deadRunning: boolean;
+      regionRunning: boolean;
+      deadJob: Job | null;
+      regionJob: Job | null;
+    }>('/api/cleanup/status'),
 
   /** POST /api/inbox/add — append a single URL to data/pipeline.md as Pending. */
   addInboxUrl: (url: string) =>
     jpost<{ ok: true; row: string }>('/api/inbox/add', { url }),
+
+  /** POST /api/inbox/remove — hard-delete a URL's row from data/pipeline.md.
+   *  Matches both `- [ ]` and `- [x]` rows. .bak snapshot written server-side. */
+  removePipelineUrl: (url: string) =>
+    jpost<{ ok: true }>('/api/inbox/remove', { url }),
 
   // ------------------------------------------------------------------
   // Onboarding endpoints. These exist (or will exist) on the Fastify

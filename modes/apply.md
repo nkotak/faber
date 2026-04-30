@@ -60,13 +60,24 @@ Classify each question:
 
 ## Step 5 — Generate answers
 
+**Before drafting:** Read `.claude/skills/prose-discipline/SKILL.md`, `references/anti-patterns.md`, `references/banned-phrases.md`, and `references/learned.md`. The 19 anti-patterns and 20-phrase blacklist apply to every answer below.
+
 For each question, generate the answer following:
 
 1. **Report context**: use proof points from Block B, STAR stories from Block F
 2. **Prior Section G**: if a draft answer exists, use it as a base and refine
-3. **"I'm choosing you" tone**: same framework as auto-pipeline
-4. **Specificity**: reference something concrete from the JD visible on screen
+3. **"I'm choosing you" tone**: same framework as auto-pipeline. Plain emotional claims, not cinematic (Rule 17). Specific reasons backed by concrete product behavior (Rule 9).
+4. **Specificity**: reference something concrete from the JD visible on screen. Use product names like a user, not press release (Rule 18).
 5. **faber proof point**: include in "Additional info" if there's a field for it
+6. **Sentence variety**: vary length aggressively (Rule 10). One strong claim per paragraph (Rule 13).
+
+**After drafting (mandatory):** Save the draft answers to a temp file, then run:
+
+```bash
+node .claude/skills/prose-discipline/scripts/validate-prose.mjs <draft-file>
+```
+
+If `summary.violations > 0`, fix each one and re-run. Iterate until violations = 0. Mechanical violations (em-dashes, banned phrases, "as someone who", "I can X, Y, Z") MUST be fixed. For judgment-call rules (5, 7, 8, 11, 13, 14, 17, 18) that aren't auto-detected, self-check before presenting.
 
 **Output format:**
 

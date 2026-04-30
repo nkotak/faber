@@ -112,24 +112,26 @@ After detecting archetype, read `modes/_profile.md` for the user's specific fram
 
 These rules apply to ALL generated text that ends up in candidate-facing documents: PDF summaries, bullets, cover letters, form answers, LinkedIn messages. They do NOT apply to internal evaluation reports.
 
-### Avoid cliché phrases
-- "passionate about" / "results-oriented" / "proven track record"
-- "leveraged" (use "used" or name the tool)
-- "spearheaded" (use "led" or "ran")
-- "facilitated" (use "ran" or "set up")
-- "synergies" / "robust" / "seamless" / "cutting-edge" / "innovative"
-- "in today's fast-paced world"
-- "demonstrated ability to" / "best practices" (name the practice)
+### Use the prose-discipline skill
+
+All user-facing prose must follow the rules in `.claude/skills/prose-discipline/`. Read `SKILL.md` and `references/anti-patterns.md` before drafting. Run the validator after drafting:
+
+```bash
+node .claude/skills/prose-discipline/scripts/validate-prose.mjs <file>
+```
+
+Fix every flagged violation before saving. The skill enforces the 19 anti-patterns (em-dashes, contrast framing, engagement bait, grand-synthesis phrases, broad comparative claims, polished adjectives, slogan endings, etc.) plus a 20-phrase blacklist.
+
+In addition to the prose-discipline rules, also avoid these older cliché phrases (kept here for ATS-keyword guidance, not voice):
+
+- "passionate about" / "results-oriented" / "proven track record" / "leveraged" / "spearheaded" / "facilitated" / "synergies" / "robust" / "seamless" / "innovative" / "in today's fast-paced world" / "demonstrated ability to" / "best practices".
 
 ### Unicode normalization for ATS
-`generate-pdf.mjs` automatically normalizes em-dashes, smart quotes, and zero-width characters to ASCII equivalents for maximum ATS compatibility. But avoid generating them in the first place.
 
-### Vary sentence structure
-- Don't start every bullet with the same verb
-- Mix sentence lengths (short. Then longer with context. Short again.)
-- Don't always use "X, Y, and Z" — sometimes two items, sometimes four
+`generate-pdf.mjs` automatically normalizes em-dashes, smart quotes, and zero-width characters to ASCII equivalents for maximum ATS compatibility. But the prose-discipline validator (Rule 3) catches them at draft time so they never reach the renderer.
 
 ### Prefer specifics over abstractions
+
 - "Cut p95 latency from 2.1s to 380ms" beats "improved performance"
 - "Postgres + pgvector for retrieval over 12k docs" beats "designed scalable RAG architecture"
 - Name tools, projects, and customers when allowed

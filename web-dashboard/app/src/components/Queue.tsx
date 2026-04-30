@@ -1,7 +1,9 @@
 // Queue.tsx - the pending-URLs queue view (TUI's QUEUE tab).
-// Each item has a button to spawn an eval job.
+// Each item has a button to spawn an eval job and a hover-revealed × that
+// hard-removes the row from data/pipeline.md (with a 3s inline confirm).
 // Toolbar at the top hosts cleanup actions (dead URLs, region mismatches).
 
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { PendingJob, PendingLiveness } from '../lib/types';
@@ -13,12 +15,6 @@ interface Props {
 }
 
 export function PendingQueue({ items }: Props) {
-  const qc = useQueryClient();
-  const evalMutation = useMutation({
-    mutationFn: (url: string) => api.startEvalJob(url),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['jobs'] }),
-  });
-
   if (items.length === 0) {
     return (
       <div className="queue queue--empty">
@@ -54,39 +50,100 @@ export function PendingQueue({ items }: Props) {
           </header>
           <ul className="queue__list">
             {list.map((p) => (
-              <li className="queue__item" key={`${p.url}-${p.lineNumber}`}>
-                <div className="queue__item-main">
-                  <span className="queue__item-company">{p.company || '—'}</span>
-                  <span className="queue__item-role">{p.role || p.url}</span>
-                  <div className="queue__item-meta">
-                    <a
-                      className="queue__item-url mono"
-                      href={p.url.startsWith('local:') ? '#' : p.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {p.url}
-                    </a>
-                    {p.location ? (
-                      <LocationPill location={p.location} />
-                    ) : null}
-                    {p.liveness ? (
-                      <LivenessBadge liveness={p.liveness} />
-                    ) : null}
-                  </div>
-                </div>
-                <button
-                  className="queue__eval mono"
-                  onClick={() => evalMutation.mutate(p.url)}
-                >
-                  evaluate ↗
-                </button>
-              </li>
+              <QueueItem key={`${p.url}-${p.lineNumber}`} item={p} />
             ))}
           </ul>
         </section>
       ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// QueueItem — one row. Owns local state for the inline-confirm remove button
+// so each row's confirm timer is independent.
+// ---------------------------------------------------------------------------
+
+interface QueueItemProps {
+  item: PendingJob;
+}
+
+function QueueItem({ item: p }: QueueItemProps) {
+  const qc = useQueryClient();
+  const evalMutation = useMutation({
+    mutationFn: (url: string) => api.startEvalJob(url),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['jobs'] }),
+  });
+  const removeMutation = useMutation({
+    mutationFn: (url: string) => api.removePipelineUrl(url),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pipeline'] }),
+  });
+
+  // Inline-confirm state machine: idle → confirming (3s window) → idle.
+  // While confirming, the × swaps to "remove?" and a second click fires the
+  // remove. A timeout reverts to idle if the user doesn't follow through.
+  const [confirming, setConfirming] = useState(false);
+  const confirmTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimeout.current) clearTimeout(confirmTimeout.current);
+    };
+  }, []);
+
+  const handleRemoveClick = () => {
+    if (confirming) {
+      if (confirmTimeout.current) {
+        clearTimeout(confirmTimeout.current);
+        confirmTimeout.current = null;
+      }
+      removeMutation.mutate(p.url);
+      return;
+    }
+    setConfirming(true);
+    confirmTimeout.current = setTimeout(() => {
+      setConfirming(false);
+      confirmTimeout.current = null;
+    }, 3000);
+  };
+
+  return (
+    <li className="queue__item">
+      <div className="queue__item-main">
+        <span className="queue__item-company">{p.company || '—'}</span>
+        <span className="queue__item-role">{p.role || p.url}</span>
+        <div className="queue__item-meta">
+          <a
+            className="queue__item-url mono"
+            href={p.url.startsWith('local:') ? '#' : p.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {p.url}
+          </a>
+          {p.location ? <LocationPill location={p.location} /> : null}
+          {p.liveness ? <LivenessBadge liveness={p.liveness} /> : null}
+        </div>
+      </div>
+      <div className="queue__item-actions">
+        <button
+          type="button"
+          className={`queue__item-remove mono ${confirming ? 'queue__item-remove--confirm' : ''}`}
+          onClick={handleRemoveClick}
+          disabled={removeMutation.isPending}
+          aria-label={confirming ? 'confirm remove' : 'remove from queue'}
+          title={confirming ? 'Click again to remove' : 'Remove from queue'}
+        >
+          {removeMutation.isPending ? '…' : confirming ? 'remove?' : '×'}
+        </button>
+        <button
+          className="queue__eval mono"
+          onClick={() => evalMutation.mutate(p.url)}
+        >
+          evaluate ↗
+        </button>
+      </div>
+    </li>
   );
 }
 

@@ -14,8 +14,13 @@
 // The --output-format + --verbose pair is how stream-json events flow back
 // to the job manager for live progress chips.
 
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import path from 'node:path';
 import { loadApplications, reportNum } from '../parsers/applications.mjs';
 import { markUrlEvaluated } from '../writers/pipeline-flipper.mjs';
+
+const execFileAsync = promisify(execFile);
 
 const CLAUDE_BASE_FLAGS = [
   '--output-format', 'stream-json',
@@ -77,9 +82,17 @@ export function registerJobsRoutes(app, { careerOpsRoot, jobs }) {
       // outside the dashboard.
       args: ['-p', `/faber offer ${url}`, ...CLAUDE_BASE_FLAGS],
       cwd: careerOpsRoot,
-      // Post-success: flip the matching - [ ] row in data/pipeline.md to
-      // - [x] so the URL leaves the Queue UI. Failure is logged, not fatal.
-      onSuccess: () => markUrlEvaluated(careerOpsRoot, url),
+      // Post-success: (1) flip the matching - [ ] row in data/pipeline.md
+      // to - [x] so the URL leaves the queue, then (2) merge any pending
+      // tracker TSVs the eval wrote into applications.md. Without (2) the
+      // user sees a successful eval but no entry in the apps list — claude
+      // writes the TSV to batch/tracker-additions/, which is meaningless
+      // until merge-tracker.mjs picks it up. Failure of either step is
+      // logged but doesn't change the job's reported success.
+      onSuccess: async () => {
+        await markUrlEvaluated(careerOpsRoot, url);
+        await runMergeTracker(careerOpsRoot);
+      },
     });
     return snapshot;
   });
@@ -117,5 +130,18 @@ export function registerJobsRoutes(app, { careerOpsRoot, jobs }) {
     const ok = jobs.cancel(id);
     if (!ok) return reply.code(404).send({ error: 'no running job with that id' });
     return { ok: true };
+  });
+}
+
+/**
+ * Run `node merge-tracker.mjs` from the project root. Idempotent — when the
+ * additions directory is empty, the script is a clean no-op. Errors are
+ * caught at the call site (the JobManager onSuccess hook wraps in try/catch).
+ */
+async function runMergeTracker(careerOpsRoot) {
+  const script = path.join(careerOpsRoot, 'merge-tracker.mjs');
+  await execFileAsync(process.execPath, [script], {
+    cwd: careerOpsRoot,
+    timeout: 30_000, // merge is fast; 30s is generous
   });
 }

@@ -72,10 +72,19 @@ function comboMatches(combo: string, e: KeyboardEvent) {
   const ctrl = parts.includes('ctrl');
   const last = parts[parts.length - 1];
 
+  // Required modifiers must be pressed.
   if (mod && !(e.metaKey || e.ctrlKey)) return false;
   if (!mod && shift && !e.shiftKey) return false;
   if (!mod && ctrl && !e.ctrlKey) return false;
   if (!mod && alt && !e.altKey) return false;
+
+  // Modifiers NOT named in the combo must NOT be pressed. Without these
+  // checks, a combo like `c` (status picker) fires on Cmd+C — the browser
+  // copies AND the app shortcut runs. Same trap for `s` vs Cmd+S, `v` vs
+  // Cmd+V, `r` vs Cmd+R. Single-key shortcuts now only fire on plain key
+  // presses; modifier-prefixed shortcuts must declare their modifiers.
+  if (!mod && (e.metaKey || e.ctrlKey)) return false;
+  if (!alt && e.altKey) return false;
 
   const key = (e.key ?? '').toLowerCase();
   return key === last;

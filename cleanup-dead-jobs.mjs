@@ -54,7 +54,7 @@ const { values: args } = parseArgs({
   options: {
     'dry-run': { type: 'boolean', default: false },
     scope: { type: 'string', default: 'all' },
-    concurrency: { type: 'string', default: '4' },
+    concurrency: { type: 'string', default: '8' },
     'max-age': { type: 'string', default: '7' },
     limit: { type: 'string', default: '0' },
     'no-cache': { type: 'boolean', default: false },
@@ -70,7 +70,7 @@ if (args.help) {
 Options:
   --dry-run            Preview changes; write nothing
   --scope=apps|pipeline|all   (default: all)
-  --concurrency=N      Parallel browser contexts (default: 4)
+  --concurrency=N      Parallel browser contexts (default: 8)
   --max-age=DAYS       Skip URLs checked more recently than this (default: 7)
   --limit=N            Check only first N candidates (oldest first; 0 = no limit)
   --no-cache           Ignore liveness-cache.tsv
@@ -94,8 +94,13 @@ const PIPELINE_PATH = join(ROOT, 'data', 'pipeline.md');
 const CACHE_PATH = join(ROOT, 'data', 'liveness-cache.tsv');
 const REPORTS_DIR = join(ROOT, 'reports');
 
-// Statuses we never re-check (active conversations + already-terminal)
+// Statuses we never re-check. These represent rows where the user has
+// already acted (Applied, Interview, Offer, Rejected, Responded), the row
+// was already terminated (Discarded, Skip), or the user's signal is too
+// strong to overwrite. Applied is the load-bearing entry — flipping an
+// Applied row to Discarded just because a URL went 404 is destructive.
 const TERMINAL_STATUSES = new Set([
+  'applied',
   'rejected',
   'offer',
   'interview',

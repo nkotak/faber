@@ -3,7 +3,7 @@ name: faber
 description: AI job search command center -- evaluate offers, generate CVs, scan portals, track applications
 user_invocable: true
 args: mode
-argument-hint: "[scan | deep | pdf | offer | offers | apply | batch | tracker | pipeline | contact | training | project | cleanup | patterns]"
+argument-hint: "[scan | deep | pdf | offer | offers | apply | batch | tracker | pipeline | contact | training | project | cleanup | patterns | reflect]"
 ---
 
 # faber -- Router
@@ -29,6 +29,7 @@ Determine the mode from `{{mode}}`:
 | `scan` | `scan` |
 | `batch` | `batch` |
 | `patterns` | `patterns` |
+| `reflect` (with optional `<application_num>` arg) | `reflect` |
 | `cleanup` (with optional sub-arg `dead` / `region` / `both`) | `cleanup` |
 
 **Auto-pipeline detection:** If `{{mode}}` is not a known sub-command AND contains JD text (keywords: "responsibilities", "requirements", "qualifications", "about the role", "we're looking for", company name + role) or a URL to a JD, execute `auto-pipeline`.
@@ -59,6 +60,7 @@ Available commands:
   /faber scan      → Scan portals and discover new offers
   /faber batch     → Batch processing with parallel workers
   /faber patterns  → Analyze rejection patterns and improve targeting
+  /faber reflect   → Re-run reflection on a status transition (e.g. /faber reflect 1)
   /faber cleanup   → Cleanup pipeline & tracker:
                        /faber cleanup dead   → liveness sweep (two-strikes)
                        /faber cleanup region → prune entries that don't match location_filter
@@ -82,7 +84,7 @@ Applies to: `auto-pipeline`, `offer`, `offers`, `pdf`, `contact`, `apply`, `pipe
 ### Standalone modes (only their mode file):
 Read `modes/{mode}.md`
 
-Applies to: `tracker`, `deep`, `training`, `project`, `patterns`, `cleanup`
+Applies to: `tracker`, `deep`, `training`, `project`, `patterns`, `cleanup`, `reflect`
 
 ### Modes delegated to subagent:
 For `scan`, `apply` (with Playwright), and `pipeline` (3+ URLs): launch as Agent with the content of `_shared.md` + `modes/{mode}.md` injected into the subagent prompt.

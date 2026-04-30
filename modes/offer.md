@@ -2,12 +2,16 @@
 
 When the candidate pastes an offer (text or URL), ALWAYS deliver all 6 blocks:
 
-## Step 0 — Archetype detection
+## Step 0 — Archetype detection + lessons load
 
 Classify the offer into one of the 6 archetypes (see `_shared.md`). If it's a hybrid, indicate the 2 closest ones. This determines:
 - Which proof points to prioritize in Block B
 - How to rewrite the summary in Block E
 - Which STAR stories to prepare in Block F
+
+**Also: read `modes/_profile.md` "Lessons from Outcomes (n≥2)" and "Watch list (n=1)" subsections.** Each Lesson has an "Apply when" clause. If a Lesson's condition matches this JD (location, archetype, comp, stack), apply its guidance during scoring. For example, a Lesson tagged `dream-role-bias` says: when mission-fit is high but operational fit (location/comp/level) is mediocre, do not let mission-fit alone push the global score above 4.0. Watch-list entries (n=1) are advisory — surface them in the report but do not apply weight changes.
+
+If `config/profile.yml` has a `learned_weights:` section, apply each delta to the relevant component score during the global score calculation. Each `learned_weights` entry has `tag`, `delta`, `applies_to`, and `rationale`. The rationale is part of the report's transparency — surface it in Block C ("Level and Strategy") if the delta is applied.
 
 ## Block A — Role summary
 
@@ -63,6 +67,10 @@ Table with data and cited sources. If there's no data, say so instead of inventi
 Top 5 CV changes + top 5 LinkedIn changes to maximize match.
 
 ## Block F — Interview plan
+
+**Before writing the STAR+R cells**, read `.claude/skills/prose-discipline/SKILL.md` and `references/anti-patterns.md`. The S/T/A/R cells are read aloud verbatim during interview prep — same rules as application answers apply: no em-dashes, no contrast framing ("This isn't X, it's Y"), no engagement bait, no grand-synthesis phrases, none of the 20 banned phrases. The Reflection column is internal analysis and is exempt — write it however reads clearest.
+
+**After writing**, save the section to a temp file and run `node .claude/skills/prose-discipline/scripts/validate-prose.mjs <file>` on the S/T/A/R columns only. Fix every mechanical violation before saving Section F to the report.
 
 6-10 STAR+R stories mapped to JD requirements (STAR + **Reflection**):
 
@@ -130,7 +138,7 @@ Save the full evaluation to `reports/{###}-{company-slug}-{YYYY-MM-DD}.md`.
 (full contents of Block F)
 
 ## G) Draft Application Answers
-(only if score >= 4.5 — draft answers for the application form)
+(only if score >= 4.5 — draft answers for the application form. **Before drafting**, read `.claude/skills/prose-discipline/SKILL.md` + `references/anti-patterns.md` + `references/banned-phrases.md` + `references/learned.md`. **After drafting**, save the prose to a temp file and run `node .claude/skills/prose-discipline/scripts/validate-prose.mjs <file>` — fix every violation before saving Section G to the report.)
 
 ---
 

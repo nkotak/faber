@@ -101,40 +101,49 @@ function CleanupModal({ kind, onClose }: ModalProps) {
     },
   });
 
-  // Initial dry-run kicks off when the modal mounts.
+  // On mount: either re-attach to an existing cleanup of this kind (running
+  // OR recently finished with proposed changes), or kick off a fresh dry-run.
   //
-  // React 18 StrictMode invokes mount effects twice in dev, which would fire
-  // two POSTs to /api/cleanup/{kind}: the first wins, the second hits 409
-  // because the server limits to one active cleanup per kind. The ref guard
-  // ensures we only spawn one job per modal lifetime regardless of how many
-  // times this effect runs.
+  // The cleanup status endpoint returns the most-recent job per kind, kept
+  // alive for 10 minutes after success so the user can close the modal mid-
+  // run, come back later, and still see the apply button for a finished
+  // dry-run. Branches:
+  //   running             → previewing (latch onto live progress)
+  //   succeeded + exit 2  → reviewing  (proposed changes pending; show apply)
+  //   anything else       → spawn a fresh dry-run
+  //
+  // React 18 StrictMode invokes mount effects twice in dev. The ref guard
+  // keeps us from spawning two dry-runs in the spawn-fresh branch — the
+  // re-attach branches are naturally idempotent (latching to the same id).
   const dryRunStartedRef = useRef(false);
   useEffect(() => {
     if (stage.phase !== 'idle') return;
-    if (dryRunStartedRef.current) return;
-    dryRunStartedRef.current = true;
 
     let cancelled = false;
     (async () => {
       try {
-        // Pre-flight: if a cleanup of this kind is already running (e.g. user
-        // closed and reopened the modal mid-job, or two browser tabs are open),
-        // bail out with a friendlier message than a raw 409.
         const status = await api.cleanupStatus();
-        const alreadyRunning =
-          (kind === 'dead' && status.deadRunning) ||
-          (kind === 'region' && status.regionRunning);
-        if (alreadyRunning) {
-          if (!cancelled) {
-            setStage({
-              phase: 'done',
-              outcome: 'failed',
-              line: `A ${kind === 'dead' ? 'dead-URL' : 'region-mismatch'} cleanup is already running. Wait for it to finish, then reopen this dialog.`,
-            });
+        const recent = kind === 'dead' ? status.deadJob : status.regionJob;
+        if (recent) {
+          // Still running → re-attach for live progress.
+          if (recent.status === 'running' || recent.status === 'cancelling') {
+            if (!cancelled) setStage({ phase: 'previewing', jobId: recent.id });
+            return;
           }
-          return;
+          // Finished dry-run with proposed changes → re-attach in reviewing
+          // stage so the user can apply.
+          if (recent.status === 'succeeded' && recent.exitCode === 2) {
+            if (!cancelled) setStage({ phase: 'reviewing', jobId: recent.id });
+            return;
+          }
+          // Otherwise (succeeded with exit 0, failed, cancelled): fall through
+          // to spawn a fresh dry-run. The previous result is either applied
+          // or no-op, so a new run is the right next step.
         }
 
+        // Spawn a fresh dry-run. Guarded against StrictMode double-fire.
+        if (dryRunStartedRef.current) return;
+        dryRunStartedRef.current = true;
         const job = await startMutation.mutateAsync({ dryRun: true });
         if (!cancelled) setStage({ phase: 'previewing', jobId: job.id });
       } catch {
@@ -222,25 +231,25 @@ function CleanupModal({ kind, onClose }: ModalProps) {
       ? job.progressLine
       : null;
 
-  // Backdrop click closes only when the modal is in a stable state. Closing
-  // mid-job would orphan progress without aborting the underlying script.
+  // Closing the modal mid-run does NOT cancel the subprocess — the JobManager
+  // owns the lifecycle and exposes it via /api/cleanup/status. On reopen, the
+  // mount effect re-attaches to the active job. So backdrop/Esc/× are always
+  // safe to close, even mid-run.
   const isRunning = stage.phase === 'previewing' || stage.phase === 'applying';
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
-    if (isRunning) return;
     onClose();
   };
 
-  // Esc to close (only when not actively running)
+  // Esc to close.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (stage.phase === 'previewing' || stage.phase === 'applying') return;
       onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [stage.phase, onClose]);
+  }, [onClose]);
 
   return (
     <div
@@ -264,7 +273,6 @@ function CleanupModal({ kind, onClose }: ModalProps) {
             className="cleanup-modal__close"
             onClick={onClose}
             aria-label="Close"
-            disabled={stage.phase === 'previewing' || stage.phase === 'applying'}
           >
             ×
           </button>
@@ -278,6 +286,14 @@ function CleanupModal({ kind, onClose }: ModalProps) {
             <pre className="cleanup-modal__progress" aria-live="polite">
               {lineLive}
             </pre>
+          ) : null}
+          {isRunning ? (
+            <p className="cleanup-modal__hint">
+              Long-running cleanups (300+ URLs through Playwright) can take
+              several minutes. <strong>Close this modal any time</strong> — the
+              job continues in the background. Reopen it to see live progress
+              and the apply button when the dry-run finishes.
+            </p>
           ) : null}
           {stage.phase === 'reviewing' ? (
             <p className="cleanup-modal__hint">
@@ -323,9 +339,8 @@ function CleanupModal({ kind, onClose }: ModalProps) {
               type="button"
               className="cleanup-modal__btn"
               onClick={onClose}
-              disabled
             >
-              running…
+              close · keep running
             </button>
           )}
         </footer>

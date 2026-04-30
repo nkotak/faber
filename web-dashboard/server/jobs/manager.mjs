@@ -19,6 +19,27 @@ const TOAST_MS = {
   cancelled: 10_000,
 };
 
+/**
+ * Some job kinds need a longer "after-life" in the registry so the UI can
+ * re-attach to a finished-but-not-yet-acted-on result. Specifically: cleanup
+ * dry-runs whose user-visible flow is "preview, then click apply" — if the
+ * user closes the modal during the long Playwright phase, the chip auto-
+ * pruning after 5s would erase the proposed changes before they had a chance
+ * to review and apply.
+ *
+ * Keyed by `${kind}:${status}`; the value is the toast TTL in ms. Falls back
+ * to TOAST_MS[status] for unmatched kinds.
+ *
+ * 2 minutes is the chosen cleanup window — enough room for the user to
+ * realize the dry-run finished, glance at the chip, and click apply. The
+ * inline Apply button on the chip + the modal re-attach mean we no longer
+ * need the original 10-minute generosity.
+ */
+const TOAST_MS_BY_KIND = {
+  'cleanup-dead:succeeded': 120_000, // 2 minutes
+  'cleanup-region:succeeded': 120_000,
+};
+
 /** Delay after exit before we scan for the expected artifact. Chokidar's
  * awaitWriteFinish can still be debouncing when the subprocess exits,
  * and macOS FS has a small lag under load. 1.2s is conservative and
@@ -233,6 +254,36 @@ export class JobManager extends EventEmitter {
     return false;
   }
 
+  /**
+   * Return the active job snapshot for (kind, refKey) if one is running, else
+   * null. Used by routes that need to let the UI re-attach to a running job
+   * after the user closed and reopened a modal.
+   */
+  getActiveFor(kind, refKey) {
+    for (const j of this.jobs.values()) {
+      if (j.kind !== kind) continue;
+      if (j.refKey !== refKey) continue;
+      if (j.status === 'running' || j.status === 'cancelling') return this.#snapshot(j);
+    }
+    return null;
+  }
+
+  /**
+   * Return the most-recent job snapshot for (kind, refKey) regardless of
+   * status (running, succeeded, failed, cancelled). Used to let the UI
+   * re-enter the right modal state when the user reopens after a job has
+   * finished. Most-recent is determined by startedAt.
+   */
+  getMostRecentFor(kind, refKey) {
+    let chosen = null;
+    for (const j of this.jobs.values()) {
+      if (j.kind !== kind) continue;
+      if (j.refKey !== refKey) continue;
+      if (!chosen || j.startedAt > chosen.startedAt) chosen = j;
+    }
+    return chosen ? this.#snapshot(chosen) : null;
+  }
+
   #snapshot(job) {
     return {
       id: job.id,
@@ -253,7 +304,8 @@ export class JobManager extends EventEmitter {
   /** Emit update + schedule auto-prune after the toast window. */
   #finalize(job) {
     this.emit('update', this.#snapshot(job));
-    const ttl = TOAST_MS[job.status] ?? 5_000;
+    const kindKey = `${job.kind}:${job.status}`;
+    const ttl = TOAST_MS_BY_KIND[kindKey] ?? TOAST_MS[job.status] ?? 5_000;
     job.pruneTimer = setTimeout(() => {
       this.jobs.delete(job.id);
       this.emit('remove', { id: job.id });

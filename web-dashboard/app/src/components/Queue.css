@@ -161,6 +161,68 @@
   background: color-mix(in srgb, var(--ember) 12%, var(--paper));
   font-weight: 600;
 }
+.queue__item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-shrink: 0;
+}
+/* ── Per-row remove button ────────────────────────────────────────────────
+ * Hidden by default; reveals on row hover so the row stays clean at rest
+ * (consistent with the editorial-meets-terminal preference for chrome that
+ * recedes until needed). The × → 'remove?' inline confirm replaces a modal
+ * — keystroke economy, no layered dialogs.
+ */
+.queue__item-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  line-height: 1;
+  color: var(--ink-muted);
+  background: var(--paper);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--d-fast) var(--ease-out-quart),
+    color var(--d-fast) var(--ease-out-quart),
+    border-color var(--d-fast) var(--ease-out-quart),
+    background var(--d-fast) var(--ease-out-quart),
+    width var(--d-fast) var(--ease-out-quart);
+}
+.queue__item:hover .queue__item-remove,
+.queue__item-remove:focus-visible,
+.queue__item-remove--confirm {
+  opacity: 1;
+}
+.queue__item-remove:hover:not(:disabled) {
+  color: var(--ember);
+  border-color: var(--ember);
+}
+.queue__item-remove:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+}
+.queue__item-remove--confirm {
+  width: auto;
+  padding: 0 var(--s-2);
+  color: var(--ember);
+  border-color: var(--ember);
+  background: color-mix(in srgb, var(--ember) 6%, var(--paper));
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+.queue__item-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .queue__eval {
   padding: 8px 14px;
   border: 1px solid var(--phosphor-dim);
